@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Disallow admin and API routes
+Disallow: /admin/
+Disallow: /api/
+
+# Allow product and category pages
+Allow: /products/
+Allow: /categories/
+
+Sitemap: https://rj4wear.com/sitemap.xml

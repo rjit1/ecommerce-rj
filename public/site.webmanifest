@@ -1,0 +1,16 @@
+{
+  "name": "RJ4WEAR - Premium Fashion Store",
+  "short_name": "RJ4WEAR",
+  "description": "Premium Fashion & Lifestyle Store",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#87CEEB",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
