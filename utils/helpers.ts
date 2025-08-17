@@ -138,7 +138,7 @@ export function getAvailableSizes(variants: any[]): string[] {
     .filter(variant => variant.stock_quantity > 0)
     .map(variant => variant.size)
   
-  return [...new Set(sizes)].sort()
+  return Array.from(new Set(sizes)).sort()
 }
 
 // Get available colors for a product and size

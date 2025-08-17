@@ -90,7 +90,7 @@ async function getHomePageData() {
       .limit(8)
 
     // Process products to add featured_image
-    const processProducts = (products: any[]) => {
+    const processProducts = (products: any[] | null) => {
       return products?.map(product => ({
         ...product,
         featured_image: product.images?.[0]?.image_url || null

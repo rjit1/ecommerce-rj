@@ -104,12 +104,21 @@ export async function POST(request: NextRequest) {
 
     // Update coupon usage if applicable
     if (orderData.coupon_code) {
-      await supabase
+      // First get the current used_count
+      const { data: coupon } = await supabase
         .from('coupons')
-        .update({ 
-          used_count: supabase.raw('used_count + 1')
-        })
+        .select('used_count')
         .eq('code', orderData.coupon_code)
+        .single()
+      
+      if (coupon) {
+        await supabase
+          .from('coupons')
+          .update({ 
+            used_count: coupon.used_count + 1
+          })
+          .eq('code', orderData.coupon_code)
+      }
     }
 
     return NextResponse.json({

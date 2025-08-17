@@ -5,8 +5,10 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react'
 import { useState } from 'react'
 import { Database } from '@/lib/supabase'
 import { CartProvider } from '@/contexts/CartContext'
+import { CartDataProvider } from '@/contexts/CartDataContext'
 import CartSidebarWrapper from '@/components/cart/CartSidebarWrapper'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+import SessionRefresh from '@/components/auth/SessionRefresh'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [supabaseClient] = useState(() => createClientComponentClient<Database>())
@@ -14,10 +16,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ErrorBoundary>
       <SessionContextProvider supabaseClient={supabaseClient}>
-        <CartProvider>
-          {children}
-          <CartSidebarWrapper />
-        </CartProvider>
+        <SessionRefresh />
+        <CartDataProvider>
+          <CartProvider>
+            {children}
+            <CartSidebarWrapper />
+          </CartProvider>
+        </CartDataProvider>
       </SessionContextProvider>
     </ErrorBoundary>
   )

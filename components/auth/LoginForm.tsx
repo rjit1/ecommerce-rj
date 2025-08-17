@@ -1,22 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useSupabaseClient } from '@supabase/auth-helpers-react'
 import toast from 'react-hot-toast'
+import MagicLinkDialog from './MagicLinkDialog'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [magicLinkSent, setMagicLinkSent] = useState(false)
+  const [showMagicLinkDialog, setShowMagicLinkDialog] = useState(false)
   
   const supabase = useSupabaseClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Check for email verification success
+  useEffect(() => {
+    if (searchParams.get('verified') === 'true') {
+      toast.success('Email verified successfully! You can now log in with your credentials.')
+    }
+  }, [searchParams])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,61 +50,7 @@ export default function LoginForm() {
     }
   }
 
-  const handleMagicLink = async () => {
-    if (!email) {
-      toast.error('Please enter your email address')
-      return
-    }
 
-    setLoading(true)
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-
-      if (error) {
-        toast.error(error.message)
-      } else {
-        setMagicLinkSent(true)
-        toast.success('Magic link sent to your email!')
-      }
-    } catch (error) {
-      toast.error('An error occurred sending magic link')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (magicLinkSent) {
-    return (
-      <div className="max-w-md mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-lg shadow-soft border border-gray-200 p-8 text-center"
-        >
-          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Mail className="w-8 h-8 text-primary-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h2>
-          <p className="text-gray-600 mb-6">
-            We've sent a magic link to <strong>{email}</strong>. 
-            Click the link in the email to sign in.
-          </p>
-          <button
-            onClick={() => setMagicLinkSent(false)}
-            className="text-primary-600 hover:text-primary-700 font-medium"
-          >
-            Back to login
-          </button>
-        </motion.div>
-      </div>
-    )
-  }
 
   return (
     <div className="max-w-md mx-auto">
@@ -178,18 +133,10 @@ export default function LoginForm() {
           {/* Magic Link Button */}
           <button
             type="button"
-            onClick={handleMagicLink}
-            disabled={loading}
-            className="w-full bg-white text-gray-700 py-3 px-4 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            onClick={() => setShowMagicLinkDialog(true)}
+            className="w-full bg-white text-gray-700 py-3 px-4 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition-colors duration-200"
           >
-            {loading ? (
-              <div className="flex items-center justify-center space-x-2">
-                <div className="spinner" />
-                <span>Sending magic link...</span>
-              </div>
-            ) : (
-              'Send Magic Link'
-            )}
+            Send Magic Link
           </button>
         </form>
 
@@ -209,6 +156,13 @@ export default function LoginForm() {
           </Link>
         </div>
       </motion.div>
+
+      {/* Magic Link Dialog */}
+      <MagicLinkDialog
+        isOpen={showMagicLinkDialog}
+        onClose={() => setShowMagicLinkDialog(false)}
+        mode="login"
+      />
     </div>
   )
 }

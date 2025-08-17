@@ -9,7 +9,7 @@ import { motion } from 'framer-motion'
 import { Product } from '@/types'
 import { formatCurrency, calculateDiscountPercentage, getImageUrl, isLowStock, getTotalStock } from '@/utils/helpers'
 import { useCart } from '@/hooks/useCart'
-import { useCartSidebar } from '@/contexts/CartContext'
+
 import toast from 'react-hot-toast'
 
 interface ProductCardProps {
@@ -18,14 +18,13 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, className = '' }: ProductCardProps) {
-  const { addItem, items } = useCart()
-  const { openCart } = useCartSidebar()
+  const { addItem, items, loading } = useCart()
   const router = useRouter()
 
 
 
-  // Check if product is in cart
-  const isInCart = items.some(item => item.product_id === product.id)
+  // Check if product is in cart (only when not loading to avoid hydration issues)
+  const isInCart = !loading && items.some(item => item.product_id === product.id)
 
   const discountPercentage = product.discount_price 
     ? calculateDiscountPercentage(product.price, product.discount_price)
@@ -40,25 +39,34 @@ export default function ProductCard({ product, className = '' }: ProductCardProp
     e.preventDefault()
     e.stopPropagation()
 
+    console.log('🛒 handleQuickAdd called for product:', product.name)
+    console.log('🛒 Product variants:', product.variants)
+    console.log('🛒 outOfStock:', outOfStock)
+    console.log('🛒 totalStock:', totalStock)
+
     if (outOfStock || !product.variants || product.variants.length === 0) {
+      console.log('🛒 Product is out of stock or has no variants')
       toast.error('Product is out of stock')
       return
     }
 
     // Find the first available variant
     const availableVariant = product.variants.find(v => v.stock_quantity > 0)
+    console.log('🛒 Available variant found:', availableVariant)
+    
     if (!availableVariant) {
+      console.log('🛒 No available variants found')
       toast.error('No available variants')
       return
     }
 
     try {
+      console.log('🛒 Calling addItem with:', { product: product.name, variant: availableVariant })
       await addItem(product, availableVariant, 1)
-      toast.success(`${product.name} added to cart!`)
-      // Open cart sidebar after adding item
-      setTimeout(() => openCart(), 500)
+      console.log('🛒 addItem completed successfully')
+      // Note: addItem already handles toast and opening cart once
     } catch (error) {
-      console.error('Error adding to cart:', error)
+      console.error('🛒 Error adding to cart:', error)
       toast.error('Failed to add item to cart')
     }
   }
@@ -132,21 +140,22 @@ export default function ProductCard({ product, className = '' }: ProductCardProp
       </Link>
 
       {/* Product Info */}
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
         <Link href={`/products/${product.slug}`} className="block">
-          <div className="mb-3">
+          <div className="mb-2 sm:mb-3">
             {product.category && (
               <span className="text-xs text-primary-600 uppercase tracking-wide font-medium">
                 {product.category.name}
               </span>
             )}
             
-            <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors duration-200 text-lg">
+            <h3 className="font-bold text-gray-900 mb-1 sm:mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors duration-200 text-sm sm:text-base lg:text-lg">
               {product.name}
             </h3>
             
+            {/* Hide description on mobile for space */}
             {product.description && (
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+              <p className="hidden sm:block text-sm text-gray-600 mb-3 line-clamp-2">
                 {product.description}
               </p>
             )}
@@ -154,19 +163,19 @@ export default function ProductCard({ product, className = '' }: ProductCardProp
         </Link>
 
         {/* Price */}
-        <div className="flex items-center space-x-2 mb-4">
-          <span className="text-xl font-bold text-gray-900">
+        <div className="flex items-center space-x-1 sm:space-x-2 mb-2 sm:mb-4">
+          <span className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">
             {formatCurrency(finalPrice)}
           </span>
           {product.discount_price && (
-            <span className="text-sm text-gray-500 line-through">
+            <span className="text-xs sm:text-sm text-gray-500 line-through">
               {formatCurrency(product.price)}
             </span>
           )}
         </div>
 
-        {/* Stock Status & Rating */}
-        <div className="flex items-center justify-between mb-4">
+        {/* Stock Status & Rating - Simplified for mobile */}
+        <div className="flex items-center justify-between mb-2 sm:mb-4">
           <div className="text-xs">
             {outOfStock ? (
               <span className="text-red-500 font-bold">Out of Stock</span>
@@ -177,9 +186,9 @@ export default function ProductCard({ product, className = '' }: ProductCardProp
             )}
           </div>
           
-          {/* Rating */}
-          <div className="flex items-center space-x-1">
-            <div className="flex text-yellow-400 text-sm">
+          {/* Rating - Hide on very small screens */}
+          <div className="hidden xs:flex items-center space-x-1">
+            <div className="flex text-yellow-400 text-xs sm:text-sm">
               {'★'.repeat(5)}
             </div>
             <span className="text-xs text-gray-500">(4.5)</span>
@@ -189,18 +198,23 @@ export default function ProductCard({ product, className = '' }: ProductCardProp
         {/* Add to Cart / Go to Cart Button */}
         <button
           onClick={isInCart ? () => router.push('/cart') : handleQuickAdd}
-          disabled={outOfStock}
-          className={`w-full py-3 px-4 rounded-lg font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 ${
+          disabled={outOfStock || loading}
+          className={`w-full py-2 sm:py-3 px-2 sm:px-4 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center space-x-1 sm:space-x-2 ${
             outOfStock
               ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              : loading
+              ? 'bg-gray-300 text-gray-600 cursor-wait'
               : isInCart
               ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-lg transform hover:scale-105'
               : 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-lg transform hover:scale-105'
           }`}
         >
-          <ShoppingCart className="w-4 h-4" />
-          <span>
-            {outOfStock ? 'Out of Stock' : isInCart ? 'Go to Cart' : 'Add to Cart'}
+          <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4" />
+          <span className="hidden xs:inline">
+            {outOfStock ? 'Out of Stock' : loading ? 'Loading...' : isInCart ? 'Go to Cart' : 'Add to Cart'}
+          </span>
+          <span className="xs:hidden">
+            {outOfStock ? 'Out' : loading ? '...' : isInCart ? 'Cart' : 'Add'}
           </span>
         </button>
       </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Search, ShoppingCart, Menu, X, User, LogOut, Package } from 'lucide-react'
+import { Search, ShoppingCart, Menu, X, User, LogOut, Package, AlertCircle, Loader2 } from 'lucide-react'
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCart } from '@/hooks/useCart'
@@ -24,6 +24,29 @@ interface SearchSuggestion {
   hasDiscount?: boolean
 }
 
+interface SearchResponse {
+  suggestions: SearchSuggestion[]
+  total: number
+  query: string
+  error?: string
+}
+
+// Text highlighting utility
+const highlightText = (text: string, query: string) => {
+  if (!query.trim()) return text
+  
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  const parts = text.split(regex)
+  
+  return parts.map((part, index) => 
+    regex.test(part) ? (
+      <span key={index} className="bg-red-100 text-red-700 font-semibold px-0.5 rounded">
+        {part}
+      </span>
+    ) : part
+  )
+}
+
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -31,6 +54,8 @@ export default function Navbar() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [hasSearched, setHasSearched] = useState(false)
   
   const router = useRouter()
   const user = useUser()
@@ -49,24 +74,41 @@ export default function Navbar() {
     { href: '/orders', label: 'My Orders' },
   ]
 
-  // Enhanced search functionality
+  // Enhanced search functionality with error handling
   const searchProducts = async (query: string) => {
     if (!query.trim()) {
       setSearchSuggestions([])
+      setSearchError(null)
+      setHasSearched(false)
       return
     }
 
     setIsSearching(true)
+    setSearchError(null)
+    
     try {
       const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
-      const data = await response.json()
       
-      if (data.suggestions) {
-        setSearchSuggestions(data.suggestions)
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status}`)
       }
+      
+      const data: SearchResponse = await response.json()
+      
+      if (data.error) {
+        setSearchError(data.error)
+        setSearchSuggestions([])
+      } else {
+        setSearchSuggestions(data.suggestions || [])
+        setSearchError(null)
+      }
+      
+      setHasSearched(true)
     } catch (error) {
       console.error('Search error:', error)
+      setSearchError('Unable to search. Please try again.')
       setSearchSuggestions([])
+      setHasSearched(true)
     } finally {
       setIsSearching(false)
     }
@@ -75,12 +117,14 @@ export default function Navbar() {
   const debouncedSearch = useCallback(debounce(searchProducts, 300), [])
 
   useEffect(() => {
-    if (searchQuery) {
+    if (searchQuery.trim()) {
       debouncedSearch(searchQuery)
       setShowSuggestions(true)
     } else {
       setSearchSuggestions([])
       setShowSuggestions(false)
+      setSearchError(null)
+      setHasSearched(false)
     }
   }, [searchQuery, debouncedSearch])
 
@@ -160,111 +204,147 @@ export default function Navbar() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 {isSearching && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="spinner" />
+                    <Loader2 className="w-4 h-4 text-primary-500 animate-spin" />
                   </div>
                 )}
               </div>
             </form>
 
-            {/* Enhanced Search Suggestions */}
+            {/* Enhanced Search Suggestions with Professional UI */}
             <AnimatePresence>
-              {showSuggestions && searchSuggestions.length > 0 && (
+              {showSuggestions && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-y-auto z-50"
+                  className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
                 >
-                  <div className="p-2">
-                    {searchSuggestions.map((suggestion, index) => (
-                      <button
-                        key={`${suggestion.type}-${suggestion.id}`}
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className="w-full p-3 text-left hover:bg-gray-50 rounded-lg flex items-center space-x-3 transition-colors duration-200"
-                      >
-                        {/* Product/Category Image */}
-                        <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
-                          {suggestion.image ? (
-                            <Image
-                              src={getImageUrl(suggestion.image)}
-                              alt={suggestion.name}
-                              width={48}
-                              height={48}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <div className={`w-3 h-3 rounded-full ${
-                                suggestion.type === 'product' ? 'bg-primary-500' : 'bg-accent-500'
-                              }`} />
-                            </div>
-                          )}
-                        </div>
+                  {/* Loading State */}
+                  {isSearching && (
+                    <div className="p-4 flex items-center justify-center space-x-2 text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Searching...</span>
+                    </div>
+                  )}
 
-                        {/* Product/Category Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">
-                            {suggestion.name}
-                          </p>
-                          
-                          {suggestion.type === 'product' ? (
-                            <div className="flex items-center space-x-2 mt-1">
-                              <div className="flex items-center space-x-1">
-                                {suggestion.hasDiscount && suggestion.originalPrice ? (
-                                  <>
-                                    <span className="text-sm font-semibold text-primary-600">
-                                      {formatCurrency(suggestion.price!)}
-                                    </span>
-                                    <span className="text-xs text-gray-500 line-through">
-                                      {formatCurrency(suggestion.originalPrice)}
-                                    </span>
-                                  </>
+                  {/* Error State */}
+                  {searchError && !isSearching && (
+                    <div className="p-4 flex items-center space-x-2 text-red-600 bg-red-50">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm">{searchError}</span>
+                    </div>
+                  )}
+
+                  {/* Empty State */}
+                  {!isSearching && !searchError && hasSearched && searchSuggestions.length === 0 && (
+                    <div className="p-6 text-center">
+                      <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                        <Search className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 mb-1">No results found</p>
+                      <p className="text-xs text-gray-500">
+                        Try searching with different keywords or check spelling
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Results */}
+                  {!isSearching && searchSuggestions.length > 0 && (
+                    <>
+                      <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                        <div className="p-2">
+                          {searchSuggestions.map((suggestion, index) => (
+                            <button
+                              key={`${suggestion.type}-${suggestion.id}`}
+                              onClick={() => handleSuggestionClick(suggestion)}
+                              className="w-full p-3 text-left hover:bg-gray-50 rounded-lg flex items-center space-x-3 transition-all duration-200 hover:shadow-sm"
+                            >
+                              {/* Product/Category Image */}
+                              <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
+                                {suggestion.image ? (
+                                  <Image
+                                    src={getImageUrl(suggestion.image)}
+                                    alt={suggestion.name}
+                                    width={48}
+                                    height={48}
+                                    className="w-full h-full object-cover"
+                                  />
                                 ) : (
-                                  <span className="text-sm font-semibold text-gray-900">
-                                    {formatCurrency(suggestion.price!)}
-                                  </span>
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <div className={`w-3 h-3 rounded-full ${
+                                      suggestion.type === 'product' ? 'bg-primary-500' : 'bg-accent-500'
+                                    }`} />
+                                  </div>
                                 )}
                               </div>
-                              {suggestion.category && (
-                                <span className="text-xs text-gray-500">
-                                  in {suggestion.category}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-500 mt-1">
-                              Category
-                            </p>
-                          )}
-                        </div>
 
-                        {/* Type Badge */}
-                        <div className="flex-shrink-0">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            suggestion.type === 'product' 
-                              ? 'bg-primary-100 text-primary-600' 
-                              : 'bg-accent-100 text-accent-600'
-                          }`}>
-                            {suggestion.type === 'product' ? 'Product' : 'Category'}
-                          </span>
+                              {/* Product/Category Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 truncate">
+                                  {highlightText(suggestion.name, searchQuery)}
+                                </p>
+                                
+                                {suggestion.type === 'product' ? (
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <div className="flex items-center space-x-1">
+                                      {suggestion.hasDiscount && suggestion.originalPrice ? (
+                                        <>
+                                          <span className="text-sm font-semibold text-primary-600">
+                                            {formatCurrency(suggestion.price!)}
+                                          </span>
+                                          <span className="text-xs text-gray-500 line-through">
+                                            {formatCurrency(suggestion.originalPrice)}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="text-sm font-semibold text-gray-900">
+                                          {formatCurrency(suggestion.price!)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {suggestion.category && (
+                                      <span className="text-xs text-gray-500">
+                                        in {highlightText(suggestion.category, searchQuery)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    Category
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Type Badge */}
+                              <div className="flex-shrink-0">
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                  suggestion.type === 'product' 
+                                    ? 'bg-primary-100 text-primary-600' 
+                                    : 'bg-accent-100 text-accent-600'
+                                }`}>
+                                  {suggestion.type === 'product' ? 'Product' : 'Category'}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                  
-                  {/* View All Results */}
-                  <div className="border-t border-gray-200 p-2">
-                    <button
-                      onClick={() => {
-                        router.push(`/products?search=${encodeURIComponent(searchQuery)}`)
-                        setSearchQuery('')
-                        setShowSuggestions(false)
-                      }}
-                      className="w-full p-2 text-center text-primary-600 hover:text-primary-700 font-medium text-sm"
-                    >
-                      View all results for "{searchQuery}"
-                    </button>
-                  </div>
+                      </div>
+                      
+                      {/* View All Results */}
+                      <div className="border-t border-gray-200 p-2 bg-gray-50">
+                        <button
+                          onClick={() => {
+                            router.push(`/products?search=${encodeURIComponent(searchQuery)}`)
+                            setSearchQuery('')
+                            setShowSuggestions(false)
+                          }}
+                          className="w-full p-2 text-center text-primary-600 hover:text-primary-700 font-medium text-sm hover:bg-primary-50 rounded transition-colors duration-200"
+                        >
+                          View all results for "{searchQuery}"
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -370,7 +450,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Search Bar */}
-        <div className="md:hidden pb-4">
+        <div className="md:hidden pb-4" ref={searchRef}>
           <form onSubmit={handleSearchSubmit}>
             <div className="relative">
               <input
@@ -381,8 +461,152 @@ export default function Navbar() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 text-primary-500 animate-spin" />
+                </div>
+              )}
             </div>
           </form>
+
+          {/* Enhanced Mobile Search Suggestions */}
+          <AnimatePresence>
+            {showSuggestions && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-full left-4 right-4 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
+              >
+                {/* Loading State */}
+                {isSearching && (
+                  <div className="p-4 flex items-center justify-center space-x-2 text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Searching...</span>
+                  </div>
+                )}
+
+                {/* Error State */}
+                {searchError && !isSearching && (
+                  <div className="p-3 flex items-center space-x-2 text-red-600 bg-red-50">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">{searchError}</span>
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {!isSearching && !searchError && hasSearched && searchSuggestions.length === 0 && (
+                  <div className="p-4 text-center">
+                    <div className="w-10 h-10 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
+                      <Search className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">No results found</p>
+                    <p className="text-xs text-gray-500">
+                      Try different keywords
+                    </p>
+                  </div>
+                )}
+
+                {/* Results */}
+                {!isSearching && searchSuggestions.length > 0 && (
+                  <>
+                    <div className="max-h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <div className="p-2">
+                        {searchSuggestions.map((suggestion, index) => (
+                          <button
+                            key={`${suggestion.type}-${suggestion.id}`}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="w-full p-3 text-left hover:bg-gray-50 rounded-lg flex items-center space-x-3 transition-all duration-200 hover:shadow-sm"
+                          >
+                            {/* Product/Category Image */}
+                            <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg overflow-hidden">
+                              {suggestion.image ? (
+                                <Image
+                                  src={getImageUrl(suggestion.image)}
+                                  alt={suggestion.name}
+                                  width={40}
+                                  height={40}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    suggestion.type === 'product' ? 'bg-primary-500' : 'bg-accent-500'
+                                  }`} />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Product/Category Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate text-sm">
+                                {highlightText(suggestion.name, searchQuery)}
+                              </p>
+                              
+                              {suggestion.type === 'product' ? (
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <div className="flex items-center space-x-1">
+                                    {suggestion.hasDiscount && suggestion.originalPrice ? (
+                                      <>
+                                        <span className="text-xs font-semibold text-primary-600">
+                                          {formatCurrency(suggestion.price!)}
+                                        </span>
+                                        <span className="text-xs text-gray-500 line-through">
+                                          {formatCurrency(suggestion.originalPrice)}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span className="text-xs font-semibold text-gray-900">
+                                        {formatCurrency(suggestion.price!)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {suggestion.category && (
+                                    <span className="text-xs text-gray-500 truncate">
+                                      in {highlightText(suggestion.category, searchQuery)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Category
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Type Badge */}
+                            <div className="flex-shrink-0">
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                suggestion.type === 'product' 
+                                  ? 'bg-primary-100 text-primary-600' 
+                                  : 'bg-accent-100 text-accent-600'
+                              }`}>
+                                {suggestion.type === 'product' ? 'Product' : 'Category'}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* View All Results */}
+                    <div className="border-t border-gray-200 p-2 bg-gray-50">
+                      <button
+                        onClick={() => {
+                          router.push(`/products?search=${encodeURIComponent(searchQuery)}`)
+                          setSearchQuery('')
+                          setShowSuggestions(false)
+                        }}
+                        className="w-full p-2 text-center text-primary-600 hover:text-primary-700 font-medium text-sm hover:bg-primary-50 rounded transition-colors duration-200"
+                      >
+                        View all results for "{searchQuery}"
+                      </button>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

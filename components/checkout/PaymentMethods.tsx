@@ -63,10 +63,10 @@ export default function PaymentMethods({
               
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <img src="/images/payment/upi.png" alt="UPI" className="h-6" />
-                  <img src="/images/payment/visa.png" alt="Visa" className="h-6" />
-                  <img src="/images/payment/mastercard.png" alt="Mastercard" className="h-6" />
-                  <img src="/images/payment/rupay.png" alt="RuPay" className="h-6" />
+                  <img src="/images/payment/upi.svg" alt="UPI" className="h-6" />
+                  <img src="/images/payment/visa.svg" alt="Visa" className="h-6" />
+                  <img src="/images/payment/mastercard.svg" alt="Mastercard" className="h-6" />
+                  <img src="/images/payment/rupay.svg" alt="RuPay" className="h-6" />
                 </div>
               </div>
               

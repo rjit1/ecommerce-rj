@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const supabase = createSupabaseServerClient()
 
   try {
-    // Search products with images and pricing
+    // Search products with images and pricing - improved query with better ordering
     const { data: products } = await supabase
       .from('products')
       .select(`
@@ -21,22 +21,28 @@ export async function GET(request: NextRequest) {
         slug, 
         price, 
         discount_price,
+        is_featured,
+        is_trending,
+        is_hot_sale,
         category:categories(name, slug),
         images:product_images(image_url, alt_text, display_order)
       `)
-      .ilike('name', `%${query}%`)
+      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
       .eq('is_active', true)
       .order('is_featured', { ascending: false })
       .order('is_trending', { ascending: false })
-      .limit(8)
+      .order('is_hot_sale', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(6)
 
-    // Search categories
+    // Search categories with better matching
     const { data: categories } = await supabase
       .from('categories')
       .select('id, name, slug, image_url')
-      .ilike('name', `%${query}%`)
+      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
       .eq('is_active', true)
-      .limit(4)
+      .order('display_order', { ascending: true })
+      .limit(3)
 
     // Format product suggestions with featured image
     const productSuggestions = (products || []).map(product => ({
@@ -46,7 +52,7 @@ export async function GET(request: NextRequest) {
       slug: product.slug,
       price: product.discount_price || product.price,
       originalPrice: product.discount_price ? product.price : null,
-      category: product.category?.name,
+      category: (product.category as any)?.name,
       image: product.images?.[0]?.image_url || null,
       hasDiscount: !!product.discount_price
     }))

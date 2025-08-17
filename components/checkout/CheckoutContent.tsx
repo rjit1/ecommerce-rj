@@ -45,7 +45,12 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
 
   const codFee = parseFloat(settings.cod_fee || '0')
   const freeDeliveryThreshold = parseFloat(settings.free_delivery_threshold || '999')
-  const deliveryFee = subtotal >= freeDeliveryThreshold ? 0 : 50
+  
+  // Correct delivery fee logic:
+  // - Free delivery for online payments (regardless of order value)
+  // - Free delivery for orders >= threshold (regardless of payment method)
+  // - Delivery fee only for COD orders below threshold
+  const deliveryFee = paymentMethod === 'online' || subtotal >= freeDeliveryThreshold ? 0 : 50
   const finalCodFee = paymentMethod === 'cod' ? codFee : 0
   const finalTotal = subtotal - couponDiscount + deliveryFee + finalCodFee
 
@@ -180,29 +185,29 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
 
       {/* Progress Steps */}
       <div className="mb-8">
-        <div className="flex items-center justify-center space-x-8">
+        <div className="flex items-center justify-center space-x-2 sm:space-x-8">
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
+              <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 ${
                 currentStep >= step.id
                   ? 'bg-primary-600 border-primary-600 text-white'
                   : 'border-gray-300 text-gray-400'
               }`}>
                 {step.completed ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 ) : (
-                  <step.icon className="w-5 h-5" />
+                  <step.icon className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </div>
-              <span className={`ml-2 text-sm font-medium ${
+              <span className={`ml-1 sm:ml-2 text-xs sm:text-sm font-medium ${
                 currentStep >= step.id ? 'text-primary-600' : 'text-gray-400'
               }`}>
                 {step.title}
               </span>
               {index < steps.length - 1 && (
-                <div className={`w-16 h-0.5 mx-4 ${
+                <div className={`w-8 sm:w-16 h-0.5 mx-2 sm:mx-4 ${
                   currentStep > step.id ? 'bg-primary-600' : 'bg-gray-300'
                 }`} />
               )}

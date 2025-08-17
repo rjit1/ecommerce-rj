@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const description = product.meta_description || generateMetaDescription(
     product.name, 
     product.discount_price || product.price, 
-    product.description
+    product.description || undefined
   )
 
   return {
@@ -93,12 +93,12 @@ async function getProduct(slug: string): Promise<Product | null> {
 
     // Sort images by display_order
     if (product.images) {
-      product.images.sort((a, b) => a.display_order - b.display_order)
+      product.images.sort((a: any, b: any) => a.display_order - b.display_order)
     }
 
     // Sort variants by size and color
     if (product.variants) {
-      product.variants.sort((a, b) => {
+      product.variants.sort((a: any, b: any) => {
         if (a.size !== b.size) {
           const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '28', '30', '32', '34', '36', '38', '40']
           return sizeOrder.indexOf(a.size) - sizeOrder.indexOf(b.size)

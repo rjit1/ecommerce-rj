@@ -122,8 +122,11 @@ export default function CartContent() {
 
   const codFee = settings.cod_fee || 0
   const freeDeliveryThreshold = settings.free_delivery_threshold || 999
-  const deliveryFee = subtotal >= freeDeliveryThreshold ? 0 : 50
-  const finalTotal = subtotal - couponDiscount + deliveryFee
+  // Delivery fee logic: Free for online payments OR if order >= threshold
+  // Only charge delivery fee for COD orders below threshold
+  const deliveryFee = 50 // Base delivery fee
+  const currentDeliveryFee = subtotal >= freeDeliveryThreshold ? 0 : deliveryFee
+  const finalTotal = subtotal - couponDiscount + currentDeliveryFee
 
   if (loading) {
     return (
@@ -213,7 +216,7 @@ export default function CartContent() {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                       {/* Price */}
                       <div className="flex items-center space-x-2">
                         <span className="text-lg font-semibold text-gray-900">
@@ -227,7 +230,7 @@ export default function CartContent() {
                       </div>
 
                       {/* Quantity Controls */}
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center justify-between sm:justify-end space-x-3">
                         <div className="flex items-center border border-gray-300 rounded-lg">
                           <button
                             onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -373,10 +376,10 @@ export default function CartContent() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Delivery Fee</span>
                 <span className="font-medium">
-                  {deliveryFee === 0 ? (
+                  {subtotal >= freeDeliveryThreshold ? (
                     <span className="text-green-600">FREE</span>
                   ) : (
-                    formatCurrency(deliveryFee)
+                    formatCurrency(currentDeliveryFee)
                   )}
                 </span>
               </div>
@@ -384,7 +387,7 @@ export default function CartContent() {
               {subtotal < freeDeliveryThreshold && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-700">
-                    <strong>💡 Tip:</strong> Add {formatCurrency(freeDeliveryThreshold - subtotal)} more for free delivery!
+                    <strong>💡 Tip:</strong> Add {formatCurrency(freeDeliveryThreshold - subtotal)} more for free delivery OR pay online for free delivery!
                   </p>
                 </div>
               )}
