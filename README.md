@@ -3,7 +3,6 @@
 A production-ready e-commerce platform built with Next.js, Supabase, and modern web technologies. Features a complete customer-facing website with advanced product management, cart functionality, and seamless checkout experience.
 
 ## 🚀 Features
-
 ### Customer Features
 - **Modern Landing Page** with hero banners, product sections, and responsive design
 - **Advanced Product Catalog** with filtering, sorting, and search functionality
