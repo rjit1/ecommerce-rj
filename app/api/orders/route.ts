@@ -14,6 +14,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate payment method
+    if (!['online', 'cod'].includes(orderData.payment_method)) {
+      return NextResponse.json(
+        { error: 'Invalid payment method' },
+        { status: 400 }
+      )
+    }
+
+    // Validate shipping address
+    if (!orderData.shipping_address_line_1 || !orderData.shipping_city || !orderData.shipping_state || !orderData.shipping_postal_code) {
+      return NextResponse.json(
+        { error: 'Incomplete shipping address' },
+        { status: 400 }
+      )
+    }
+
+    // Validate order amounts
+    if (orderData.total_amount <= 0 || orderData.subtotal <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid order amounts' },
+        { status: 400 }
+      )
+    }
+
+    // Validate stock availability for all items
+    for (const item of orderData.items) {
+      if (!item.variant_id || !item.quantity || item.quantity <= 0) {
+        return NextResponse.json(
+          { error: `Invalid item data for ${item.product_name}` },
+          { status: 400 }
+        )
+      }
+
+      const { data: variant, error: variantError } = await supabase
+        .from('product_variants')
+        .select('stock_quantity')
+        .eq('id', item.variant_id)
+        .single()
+
+      if (variantError || !variant) {
+        return NextResponse.json(
+          { error: `Product variant not found for ${item.product_name}` },
+          { status: 400 }
+        )
+      }
+
+      if (variant.stock_quantity < item.quantity) {
+        return NextResponse.json(
+          { error: `Insufficient stock for ${item.product_name}. Available: ${variant.stock_quantity}, Requested: ${item.quantity}` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Generate order number
     const orderNumber = `RJ${Date.now().toString().slice(-8)}`
 
@@ -35,8 +89,7 @@ export async function POST(request: NextRequest) {
         shipping_country: orderData.shipping_country || 'India',
         subtotal: orderData.subtotal,
         discount_amount: orderData.discount_amount || 0,
-        cod_fee: orderData.cod_fee || 0,
-        delivery_fee: orderData.delivery_fee || 0,
+        applied_delivery_fee: orderData.applied_delivery_fee || 0,
         total_amount: orderData.total_amount,
         coupon_code: orderData.coupon_code || null,
         coupon_discount: orderData.coupon_discount || 0,
@@ -143,13 +196,14 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = createSupabaseServerClient()
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('user_id')
-
-    if (!userId) {
+    
+    // Get the authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
       return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
@@ -163,7 +217,7 @@ export async function GET(request: NextRequest) {
           variant:product_variants(size, color)
         )
       `)
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
     if (error) {

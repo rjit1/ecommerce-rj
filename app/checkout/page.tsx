@@ -15,7 +15,7 @@ async function getSettings() {
     const { data } = await supabaseAdmin
       .from('site_settings')
       .select('key, value')
-      .in('key', ['cod_fee', 'free_delivery_threshold'])
+      .in('key', ['free_delivery_threshold', 'delivery_fee'])
 
     if (data) {
       return data.reduce((acc, setting) => {

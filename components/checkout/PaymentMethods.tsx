@@ -6,17 +6,17 @@ import { formatCurrency } from '@/utils/helpers'
 interface PaymentMethodsProps {
   selectedMethod: 'online' | 'cod'
   onMethodSelect: (method: 'online' | 'cod') => void
-  codFee: number
   subtotal: number
   freeDeliveryThreshold: number
+  deliveryFee: number
 }
 
 export default function PaymentMethods({
   selectedMethod,
   onMethodSelect,
-  codFee,
   subtotal,
-  freeDeliveryThreshold
+  freeDeliveryThreshold,
+  deliveryFee
 }: PaymentMethodsProps) {
   const isEligibleForFreeDelivery = subtotal >= freeDeliveryThreshold
 
@@ -79,7 +79,7 @@ export default function PaymentMethods({
                     </span>
                   </div>
                   <p className="text-xs text-green-600 mt-1">
-                    Save ₹50 on delivery charges by paying online
+                    Save {formatCurrency(deliveryFee)} on delivery charges by paying online
                   </p>
                 </div>
               )}
@@ -111,27 +111,20 @@ export default function PaymentMethods({
               <div className="flex items-center space-x-2 mb-2">
                 <Banknote className="w-5 h-5 text-green-600" />
                 <h3 className="font-medium text-gray-900">Cash on Delivery</h3>
-                {codFee > 0 && (
-                  <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
-                    +{formatCurrency(codFee)} fee
-                  </span>
-                )}
               </div>
               
               <p className="text-sm text-gray-600 mb-3">
                 Pay with cash when your order is delivered to your doorstep
               </p>
               
-              {codFee > 0 && (
+              {!isEligibleForFreeDelivery && (
                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                   <p className="text-sm text-orange-800">
-                    <strong>COD Fee:</strong> {formatCurrency(codFee)} will be added to your order total
+                    <strong>Delivery Fee:</strong> {formatCurrency(deliveryFee)} will be added to your order total
                   </p>
-                  {!isEligibleForFreeDelivery && (
-                    <p className="text-xs text-orange-600 mt-1">
-                      Plus ₹50 delivery charges (Free above {formatCurrency(freeDeliveryThreshold)})
-                    </p>
-                  )}
+                  <p className="text-xs text-orange-600 mt-1">
+                    Free delivery above {formatCurrency(freeDeliveryThreshold)}
+                  </p>
                 </div>
               )}
               

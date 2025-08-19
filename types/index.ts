@@ -83,7 +83,7 @@ export interface SiteSetting {
 }
 
 export interface SiteSettings {
-  cod_fee: number
+  delivery_fee: number
   free_delivery_threshold: number
   estimated_delivery_text: string
   top_header_text: string
@@ -155,8 +155,7 @@ export interface Order {
   shipping_country: string
   subtotal: number
   discount_amount: number
-  cod_fee: number
-  delivery_fee: number
+  applied_delivery_fee: number
   total_amount: number
   coupon_code: string | null
   coupon_discount: number
@@ -164,6 +163,7 @@ export interface Order {
   updated_at: string
   delivered_at: string | null
   items?: OrderItem[]
+  order_items?: OrderItem[]
 }
 
 export interface OrderItem {
@@ -255,7 +255,6 @@ export interface CheckoutData {
   subtotal: number
   discountAmount: number
   deliveryFee: number
-  codFee: number
   totalAmount: number
 }
 

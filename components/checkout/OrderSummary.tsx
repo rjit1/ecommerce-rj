@@ -12,7 +12,6 @@ interface OrderSummaryProps {
   items: CartItem[]
   subtotal: number
   deliveryFee: number
-  codFee: number
   couponDiscount: number
   total: number
   couponCode: string
@@ -28,7 +27,6 @@ export default function OrderSummary({
   items,
   subtotal,
   deliveryFee,
-  codFee,
   couponDiscount,
   total,
   couponCode,
@@ -265,12 +263,7 @@ export default function OrderSummary({
           </span>
         </div>
 
-        {paymentMethod === 'cod' && codFee > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">COD Fee</span>
-            <span className="font-medium">{formatCurrency(codFee)}</span>
-          </div>
-        )}
+
         
         {subtotal < freeDeliveryThreshold && paymentMethod === 'online' && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

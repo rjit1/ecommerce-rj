@@ -43,16 +43,16 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
   const user = useUser()
   const { items, subtotal, totalQuantity, clearCart } = useCart()
 
-  const codFee = parseFloat(settings.cod_fee || '0')
   const freeDeliveryThreshold = parseFloat(settings.free_delivery_threshold || '999')
+  const baseDeliveryFee = parseFloat(settings.delivery_fee || '50')
   
   // Correct delivery fee logic:
   // - Free delivery for online payments (regardless of order value)
-  // - Free delivery for orders >= threshold (regardless of payment method)
-  // - Delivery fee only for COD orders below threshold
-  const deliveryFee = paymentMethod === 'online' || subtotal >= freeDeliveryThreshold ? 0 : 50
-  const finalCodFee = paymentMethod === 'cod' ? codFee : 0
-  const finalTotal = subtotal - couponDiscount + deliveryFee + finalCodFee
+  // - Free delivery for COD orders >= threshold
+  // - Apply delivery fee only for COD orders below threshold
+  const deliveryFee = paymentMethod === 'online' ? 0 : 
+                     (subtotal >= freeDeliveryThreshold ? 0 : baseDeliveryFee)
+  const finalTotal = subtotal - couponDiscount + deliveryFee
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -83,6 +83,20 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
       return
     }
 
+    // Validate cart items
+    if (items.length === 0) {
+      toast.error('Your cart is empty')
+      return
+    }
+
+    // Validate stock availability
+    for (const item of items) {
+      if (!item.variant || item.variant.stock_quantity < item.quantity) {
+        toast.error(`Insufficient stock for ${item.product?.name}. Available: ${item.variant?.stock_quantity || 0}`)
+        return
+      }
+    }
+
     setIsProcessing(true)
 
     try {
@@ -101,8 +115,7 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
         shipping_country: selectedAddress.country,
         subtotal,
         discount_amount: couponDiscount,
-        cod_fee: finalCodFee,
-        delivery_fee: deliveryFee,
+        applied_delivery_fee: deliveryFee,
         total_amount: finalTotal,
         coupon_code: appliedCoupon,
         coupon_discount: couponDiscount,
@@ -135,8 +148,8 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
 
       // Handle payment based on method
       if (paymentMethod === 'online') {
+        // TODO: Integrate with Razorpay for actual payment processing
         // For now, simulate online payment success
-        // In production, integrate with Razorpay
         toast.success('Order placed successfully!')
         clearCart()
         router.push(`/orders?success=true&order=${result.order.order_number}`)
@@ -148,7 +161,8 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
       }
     } catch (error) {
       console.error('Order placement error:', error)
-      toast.error('Failed to place order. Please try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to place order. Please try again.'
+      toast.error(errorMessage)
     } finally {
       setIsProcessing(false)
     }
@@ -236,9 +250,9 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
               <PaymentMethods
                 selectedMethod={paymentMethod}
                 onMethodSelect={handlePaymentSelect}
-                codFee={codFee}
                 subtotal={subtotal}
                 freeDeliveryThreshold={freeDeliveryThreshold}
+                deliveryFee={baseDeliveryFee}
               />
             )}
 
@@ -321,7 +335,6 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
             items={items}
             subtotal={subtotal}
             deliveryFee={deliveryFee}
-            codFee={finalCodFee}
             couponDiscount={couponDiscount}
             total={finalTotal}
             couponCode={couponCode}

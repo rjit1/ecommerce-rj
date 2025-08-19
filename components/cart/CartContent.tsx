@@ -29,7 +29,7 @@ export default function CartContent() {
         const { data } = await supabase
           .from('site_settings')
           .select('key, value')
-          .in('key', ['cod_fee', 'free_delivery_threshold'])
+          .in('key', ['delivery_fee', 'free_delivery_threshold'])
 
         if (data) {
           const settingsObj = data.reduce((acc, setting) => {
@@ -120,11 +120,10 @@ export default function CartContent() {
     toast.success('Coupon removed')
   }
 
-  const codFee = settings.cod_fee || 0
+  const deliveryFee = settings.delivery_fee || 50
   const freeDeliveryThreshold = settings.free_delivery_threshold || 999
   // Delivery fee logic: Free for online payments OR if order >= threshold
   // Only charge delivery fee for COD orders below threshold
-  const deliveryFee = 50 // Base delivery fee
   const currentDeliveryFee = subtotal >= freeDeliveryThreshold ? 0 : deliveryFee
   const finalTotal = subtotal - couponDiscount + currentDeliveryFee
 

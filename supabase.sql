@@ -151,8 +151,7 @@ CREATE TABLE orders (
     -- Order Totals
     subtotal DECIMAL(10,2) NOT NULL,
     discount_amount DECIMAL(10,2) DEFAULT 0,
-    cod_fee DECIMAL(10,2) DEFAULT 0,
-    delivery_fee DECIMAL(10,2) DEFAULT 0,
+    applied_delivery_fee DECIMAL(10,2) DEFAULT 0, -- Delivery fee applied at order time
     total_amount DECIMAL(10,2) NOT NULL,
     
     -- Coupon Info
@@ -256,6 +255,10 @@ CREATE INDEX idx_user_addresses_user ON user_addresses(user_id);
 CREATE INDEX idx_coupons_code ON coupons(code);
 CREATE INDEX idx_coupons_active ON coupons(is_active) WHERE is_active = true;
 
+-- Delivery fee related indexes (added by migration 001)
+CREATE INDEX IF NOT EXISTS idx_orders_applied_delivery_fee ON orders(applied_delivery_fee);
+CREATE INDEX IF NOT EXISTS idx_orders_payment_method_subtotal ON orders(payment_method, subtotal);
+
 -- Full-text search indexes
 CREATE INDEX idx_products_search ON products USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')));
 CREATE INDEX idx_categories_search ON categories USING gin(to_tsvector('english', name));
@@ -299,6 +302,23 @@ $$ LANGUAGE plpgsql;
 
 -- Create sequence for order numbers
 CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1;
+
+-- Add column comments (added by migration 001)
+COMMENT ON COLUMN orders.applied_delivery_fee IS 'Delivery fee that was applied when this order was placed (preserves historical accuracy)';
+
+-- Insert default site settings
+INSERT INTO site_settings (key, value, description) VALUES
+('delivery_fee', '50', 'Standard delivery fee in rupees'),
+('free_delivery_threshold', '999', 'Minimum order amount for free delivery in rupees'),
+('estimated_delivery_text', '3-5 business days', 'Estimated delivery time text'),
+('top_header_text', 'Free delivery on orders above ₹999!', 'Top header announcement text'),
+('top_header_enabled', 'true', 'Enable/disable top header banner'),
+('site_name', 'RJ4WEAR', 'Site name'),
+('site_description', 'Premium clothing for modern lifestyle', 'Site description'),
+('contact_email', 'support@rj4wear.com', 'Contact email address'),
+('contact_phone', '+91-9876543210', 'Contact phone number'),
+('whatsapp_number', '+91-9876543210', 'WhatsApp number for customer support')
+ON CONFLICT (key) DO NOTHING;
 
 -- Function to get total stock for a product
 CREATE OR REPLACE FUNCTION get_product_total_stock(product_uuid UUID)
@@ -648,12 +668,40 @@ SELECT
 FROM products p
 LEFT JOIN categories c ON p.category_id = c.id;
 
--- View for order summary
+-- View for order summary (updated by migration 001)
 CREATE VIEW order_summary AS
 SELECT 
     o.*,
     COUNT(oi.id) as total_items,
-    SUM(oi.quantity) as total_quantity
+    SUM(oi.quantity) as total_quantity,
+    -- Calculate what the current delivery fee would be (for analysis)
+    CASE 
+        WHEN o.payment_method = 'online' THEN 0
+        WHEN o.subtotal >= (
+            SELECT CAST(COALESCE(value, '999') AS DECIMAL) 
+            FROM site_settings 
+            WHERE key = 'free_delivery_threshold'
+        ) THEN 0
+        ELSE (
+            SELECT CAST(COALESCE(value, '50') AS DECIMAL) 
+            FROM site_settings 
+            WHERE key = 'delivery_fee'
+        )
+    END as current_delivery_fee_rate,
+    -- Show difference between applied and current rate (for analysis)
+    o.applied_delivery_fee - CASE 
+        WHEN o.payment_method = 'online' THEN 0
+        WHEN o.subtotal >= (
+            SELECT CAST(COALESCE(value, '999') AS DECIMAL) 
+            FROM site_settings 
+            WHERE key = 'free_delivery_threshold'
+        ) THEN 0
+        ELSE (
+            SELECT CAST(COALESCE(value, '50') AS DECIMAL) 
+            FROM site_settings 
+            WHERE key = 'delivery_fee'
+        )
+    END as delivery_fee_difference
 FROM orders o
 LEFT JOIN order_items oi ON o.id = oi.order_id
 GROUP BY o.id;

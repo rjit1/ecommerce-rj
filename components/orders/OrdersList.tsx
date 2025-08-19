@@ -49,13 +49,21 @@ export default function OrdersList() {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch('/api/orders')
+      const response = await fetch('/api/orders', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       const data = await response.json()
 
       if (response.ok) {
         setOrders(data.orders || [])
       } else {
-        setError(data.error || 'Failed to fetch orders')
+        if (response.status === 401) {
+          setError('Please sign in to view your orders')
+        } else {
+          setError(data.error || 'Failed to fetch orders')
+        }
       }
     } catch (error) {
       console.error('Error fetching orders:', error)
