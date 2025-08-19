@@ -61,12 +61,15 @@ export default function PaymentMethods({
                 Pay securely using UPI, Credit/Debit Cards, Net Banking, or Wallets
               </p>
               
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <img src="/images/payment/upi.svg" alt="UPI" className="h-6" />
-                  <img src="/images/payment/visa.svg" alt="Visa" className="h-6" />
-                  <img src="/images/payment/mastercard.svg" alt="Mastercard" className="h-6" />
-                  <img src="/images/payment/rupay.svg" alt="RuPay" className="h-6" />
+              <div className="flex items-center space-x-4 overflow-hidden">
+                <div className="flex items-center space-x-2 flex-wrap">
+                  <span className="text-xs text-gray-500 font-medium">UPI</span>
+                  <span className="text-xs text-gray-500">•</span>
+                  <span className="text-xs text-gray-500 font-medium">Cards</span>
+                  <span className="text-xs text-gray-500">•</span>
+                  <span className="text-xs text-gray-500 font-medium">Net Banking</span>
+                  <span className="text-xs text-gray-500">•</span>
+                  <span className="text-xs text-gray-500 font-medium">Wallets</span>
                 </div>
               </div>
               

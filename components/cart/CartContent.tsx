@@ -120,12 +120,12 @@ export default function CartContent() {
     toast.success('Coupon removed')
   }
 
-  const deliveryFee = settings.delivery_fee || 50
-  const freeDeliveryThreshold = settings.free_delivery_threshold || 999
+  const deliveryFee = parseFloat(String(settings.delivery_fee || '50'))
+  const freeDeliveryThreshold = parseFloat(String(settings.free_delivery_threshold || '999'))
   // Delivery fee logic: Free for online payments OR if order >= threshold
   // Only charge delivery fee for COD orders below threshold
   const currentDeliveryFee = subtotal >= freeDeliveryThreshold ? 0 : deliveryFee
-  const finalTotal = subtotal - couponDiscount + currentDeliveryFee
+  const finalTotal = Math.max(0, Number(subtotal) - Number(couponDiscount) + Number(currentDeliveryFee))
 
   if (loading) {
     return (
@@ -310,7 +310,7 @@ export default function CartContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                     <input
                       type="text"
                       value={couponCode}
@@ -326,7 +326,7 @@ export default function CartContent() {
                     <button
                       onClick={applyCoupon}
                       disabled={isApplyingCoupon || !couponCode.trim()}
-                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium"
+                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium whitespace-nowrap"
                     >
                       {isApplyingCoupon ? (
                         <div className="flex items-center space-x-1">

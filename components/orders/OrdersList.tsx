@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Package, Truck, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Package, Truck, CheckCircle, Clock, XCircle, CreditCard } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { formatCurrency, formatDate, getImageUrl } from '@/utils/helpers'
+import { createRazorpayOrder, verifyRazorpayPayment, openRazorpayCheckout, initializeRazorpay } from '@/utils/razorpay'
 import { useSupabaseClient } from '@supabase/auth-helpers-react'
+import toast from 'react-hot-toast'
 
 interface Order {
   id: string
@@ -40,6 +42,7 @@ export default function OrdersList() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [retryingPayment, setRetryingPayment] = useState<string | null>(null)
   
   const supabase = useSupabaseClient()
 
@@ -70,6 +73,105 @@ export default function OrdersList() {
       setError('Failed to fetch orders')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRetryPayment = async (order: Order) => {
+    if (retryingPayment) return
+
+    setRetryingPayment(order.id)
+
+    try {
+      // Ensure Razorpay is loaded
+      if (typeof window === 'undefined' || !window.Razorpay) {
+        const isLoaded = await initializeRazorpay()
+        if (!isLoaded) {
+          throw new Error('Failed to load Razorpay SDK')
+        }
+      }
+
+      // Create Razorpay order
+      const razorpayOrderData = {
+        amount: order.total_amount,
+        currency: 'INR',
+        receipt: order.order_number,
+        notes: {
+          order_id: order.id,
+          retry_payment: 'true'
+        }
+      }
+
+      const razorpayOrder = await createRazorpayOrder(razorpayOrderData)
+
+      if (!razorpayOrder.success) {
+        throw new Error('Failed to create payment order')
+      }
+
+      // Configure Razorpay options
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        amount: razorpayOrder.order.amount,
+        currency: razorpayOrder.order.currency,
+        name: 'RJ4WEAR',
+        description: `Retry Payment for Order #${order.order_number}`,
+        order_id: razorpayOrder.order.id,
+        handler: async (response: any) => {
+          try {
+            toast.loading('Verifying payment...', { id: 'payment-verification' })
+
+            const verificationData = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              order_id: order.id
+            }
+
+            const verification = await verifyRazorpayPayment(verificationData)
+
+            toast.dismiss('payment-verification')
+
+            if (verification.success) {
+              toast.success(`Payment successful! Order #${order.order_number} confirmed.`, {
+                duration: 5000
+              })
+              // Refresh orders list
+              fetchOrders()
+            } else {
+              throw new Error(verification.message || 'Payment verification failed')
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error)
+            toast.dismiss('payment-verification')
+            const errorMessage = error instanceof Error ? error.message : 'Payment verification failed'
+            toast.error(`${errorMessage}. Please contact support.`, { duration: 8000 })
+          } finally {
+            setRetryingPayment(null)
+          }
+        },
+        prefill: {
+          name: '',
+          email: '',
+          contact: ''
+        },
+        theme: {
+          color: '#2563eb'
+        },
+        modal: {
+          ondismiss: () => {
+            setRetryingPayment(null)
+            toast.error('Payment cancelled')
+          }
+        }
+      }
+
+      // Open Razorpay checkout
+      openRazorpayCheckout(options)
+
+    } catch (error) {
+      console.error('Retry payment error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to retry payment'
+      toast.error(errorMessage)
+      setRetryingPayment(null)
     }
   }
 
@@ -202,9 +304,21 @@ export default function OrdersList() {
             </div>
 
             <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>
-                Payment: {order.payment_method === 'online' ? 'Online' : 'Cash on Delivery'}
-              </span>
+              <div className="flex items-center space-x-4">
+                <span>
+                  Payment: {order.payment_method === 'online' ? 'Online' : 'Cash on Delivery'}
+                </span>
+                {order.payment_method === 'online' && order.payment_status === 'pending' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    Payment Pending
+                  </span>
+                )}
+                {order.payment_method === 'online' && order.payment_status === 'paid' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Paid
+                  </span>
+                )}
+              </div>
               <span>
                 {order.order_items.length} {order.order_items.length === 1 ? 'item' : 'items'}
               </span>
@@ -255,9 +369,21 @@ export default function OrdersList() {
                     Write Review
                   </button>
                 )}
-                {order.status === 'pending' && (
+                {order.status === 'pending' && order.payment_status !== 'pending' && (
                   <button className="text-sm text-red-600 hover:text-red-700 font-medium">
                     Cancel Order
+                  </button>
+                )}
+                {order.payment_method === 'online' && order.payment_status === 'pending' && (
+                  <button
+                    onClick={() => handleRetryPayment(order)}
+                    disabled={retryingPayment === order.id}
+                    className="inline-flex items-center space-x-2 text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>
+                      {retryingPayment === order.id ? 'Processing...' : 'Retry Payment'}
+                    </span>
                   </button>
                 )}
               </div>

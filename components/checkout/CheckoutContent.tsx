@@ -7,6 +7,7 @@ import { CreditCard, Truck, MapPin, User, Lock, AlertCircle } from 'lucide-react
 import { motion } from 'framer-motion'
 import { useCart } from '@/hooks/useCart'
 import { formatCurrency } from '@/utils/helpers'
+import { createRazorpayOrder, verifyRazorpayPayment, openRazorpayCheckout, initializeRazorpay } from '@/utils/razorpay'
 import AddressForm from './AddressForm'
 import PaymentMethods from './PaymentMethods'
 import OrderSummary from './OrderSummary'
@@ -43,8 +44,8 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
   const user = useUser()
   const { items, subtotal, totalQuantity, clearCart } = useCart()
 
-  const freeDeliveryThreshold = parseFloat(settings.free_delivery_threshold || '999')
-  const baseDeliveryFee = parseFloat(settings.delivery_fee || '50')
+  const freeDeliveryThreshold = parseFloat(String(settings.free_delivery_threshold || '999'))
+  const baseDeliveryFee = parseFloat(String(settings.delivery_fee || '50'))
   
   // Correct delivery fee logic:
   // - Free delivery for online payments (regardless of order value)
@@ -52,7 +53,7 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
   // - Apply delivery fee only for COD orders below threshold
   const deliveryFee = paymentMethod === 'online' ? 0 : 
                      (subtotal >= freeDeliveryThreshold ? 0 : baseDeliveryFee)
-  const finalTotal = subtotal - couponDiscount + deliveryFee
+  const finalTotal = Math.max(0, Number(subtotal) - Number(couponDiscount) + Number(deliveryFee))
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -75,6 +76,132 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
   const handlePaymentSelect = (method: 'online' | 'cod') => {
     setPaymentMethod(method)
     setCurrentStep(3)
+  }
+
+  const handleRazorpayPayment = async (order: any) => {
+    try {
+      // Ensure Razorpay is loaded
+      if (typeof window === 'undefined' || !window.Razorpay) {
+        const isLoaded = await initializeRazorpay()
+        if (!isLoaded) {
+          throw new Error('Failed to load Razorpay SDK')
+        }
+      }
+
+      // Create Razorpay order
+      const razorpayOrderData = {
+        amount: finalTotal,
+        currency: 'INR',
+        receipt: order.order_number,
+        notes: {
+          order_id: order.id,
+          customer_name: selectedAddress?.full_name || '',
+          customer_email: user?.email || 'guest@example.com'
+        }
+      }
+
+      const razorpayOrder = await createRazorpayOrder(razorpayOrderData)
+
+      if (!razorpayOrder.success) {
+        throw new Error('Failed to create payment order')
+      }
+
+      // Configure Razorpay options
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        amount: razorpayOrder.order.amount,
+        currency: razorpayOrder.order.currency,
+        name: 'RJ4WEAR',
+        description: `Order #${order.order_number}`,
+        order_id: razorpayOrder.order.id,
+        handler: async (response: any) => {
+          try {
+            // Show processing message
+            toast.loading('Verifying payment...', { id: 'payment-verification' })
+
+            // Verify payment with comprehensive error handling
+            const verificationData = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              order_id: order.id
+            }
+
+            console.log('Verifying payment with data:', verificationData)
+
+            const verification = await verifyRazorpayPayment(verificationData)
+
+            // Dismiss loading toast
+            toast.dismiss('payment-verification')
+
+            if (verification.success) {
+              // Clear cart only after successful verification
+              clearCart()
+              
+              // Show success message with order details
+              toast.success(`Payment successful! Order #${order.order_number} confirmed.`, {
+                duration: 5000
+              })
+
+              // Wait a moment for user to see the success message
+              setTimeout(() => {
+                router.push(`/orders?success=true&order=${order.order_number}&payment=verified`)
+              }, 1500)
+            } else {
+              throw new Error(verification.message || 'Payment verification failed')
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error)
+            toast.dismiss('payment-verification')
+            
+            const errorMessage = error instanceof Error ? error.message : 'Payment verification failed'
+            toast.error(`${errorMessage}. Please contact support with Order #${order.order_number}`, {
+              duration: 8000
+            })
+            
+            // Don't clear cart on verification failure - user can retry
+            // Redirect to orders page with error flag so user can see their order status
+            setTimeout(() => {
+              router.push(`/orders?error=verification&order=${order.order_number}`)
+            }, 3000)
+          } finally {
+            setIsProcessing(false)
+          }
+        },
+        prefill: {
+          name: selectedAddress?.full_name || '',
+          email: user?.email || '',
+          contact: selectedAddress?.phone || ''
+        },
+        notes: {
+          address: `${selectedAddress?.address_line_1}, ${selectedAddress?.city}, ${selectedAddress?.state} ${selectedAddress?.postal_code}`
+        },
+        theme: {
+          color: '#2563eb'
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false)
+            toast.error('Payment cancelled. Your order has been created but not paid. You can retry payment from your orders page.', {
+              duration: 6000
+            })
+            // Redirect to orders page so user can see their unpaid order
+            setTimeout(() => {
+              router.push(`/orders?cancelled=true&order=${order.order_number}`)
+            }, 2000)
+          }
+        }
+      }
+
+      // Open Razorpay checkout
+      openRazorpayCheckout(options)
+
+    } catch (error) {
+      console.error('Razorpay payment error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Payment initialization failed'
+      toast.error(errorMessage)
+      setIsProcessing(false)
+    }
   }
 
   const handlePlaceOrder = async () => {
@@ -148,11 +275,8 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
 
       // Handle payment based on method
       if (paymentMethod === 'online') {
-        // TODO: Integrate with Razorpay for actual payment processing
-        // For now, simulate online payment success
-        toast.success('Order placed successfully!')
-        clearCart()
-        router.push(`/orders?success=true&order=${result.order.order_number}`)
+        // Initialize Razorpay payment
+        await handleRazorpayPayment(result.order)
       } else {
         // COD order
         clearCart()

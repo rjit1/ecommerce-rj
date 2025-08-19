@@ -73,13 +73,39 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Update order with payment details
+    // First, verify the order exists and is in pending status
+    const { data: existingOrder, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, order_number, payment_status, status, total_amount')
+      .eq('id', order_id)
+      .single()
+
+    if (fetchError || !existingOrder) {
+      console.error('Order not found:', fetchError)
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check if payment is already processed
+    if (existingOrder.payment_status === 'paid') {
+      return NextResponse.json({
+        success: true,
+        message: 'Payment already verified',
+        order: existingOrder
+      })
+    }
+
+    // Update order with payment details and confirm the order
     const { data: order, error } = await supabase
       .from('orders')
       .update({
         razorpay_order_id,
         razorpay_payment_id,
-        payment_status: 'paid'
+        payment_status: 'paid',
+        status: 'confirmed', // Automatically confirm online paid orders
+        updated_at: new Date().toISOString()
       })
       .eq('id', order_id)
       .select()
@@ -93,10 +119,23 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Log successful payment for audit
+    console.log(`Payment verified successfully for order ${order.order_number}:`, {
+      razorpay_order_id,
+      razorpay_payment_id,
+      amount: order.total_amount
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'Payment verified successfully',
-      order
+      message: 'Payment verified and order confirmed successfully',
+      order: {
+        id: order.id,
+        order_number: order.order_number,
+        payment_status: order.payment_status,
+        status: order.status,
+        total_amount: order.total_amount
+      }
     })
 
   } catch (error) {

@@ -75,6 +75,7 @@ export default function RootLayout({
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <meta name="theme-color" content="#87CEEB" />
         <meta name="msapplication-TileColor" content="#87CEEB" />
+        <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <Providers>

@@ -190,7 +190,7 @@ export default function OrderSummary({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
               <input
                 type="text"
                 value={couponCode}
@@ -206,7 +206,7 @@ export default function OrderSummary({
               <button
                 onClick={applyCoupon}
                 disabled={isApplyingCoupon || !couponCode.trim()}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium"
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium whitespace-nowrap"
               >
                 {isApplyingCoupon ? (
                   <div className="flex items-center space-x-1">

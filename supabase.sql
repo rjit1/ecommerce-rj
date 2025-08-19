@@ -503,11 +503,16 @@ CREATE POLICY "Admins can manage admin users" ON admin_users
 -- =============================================
 -- ORDER CREATION POLICY (for checkout)
 -- =============================================
+-- Allow anyone (authenticated or anonymous) to create orders
 CREATE POLICY "Anyone can create orders" ON orders
     FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Anyone can create order items" ON order_items
     FOR INSERT WITH CHECK (true);
+
+-- Allow service role to bypass RLS for order creation
+ALTER TABLE orders FORCE ROW LEVEL SECURITY;
+ALTER TABLE order_items FORCE ROW LEVEL SECURITY;
 
 -- =============================================
 -- SAMPLE DATA INSERTION
