@@ -51,13 +51,19 @@ export async function POST(request: NextRequest) {
 // Verify Razorpay payment
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient()
+    const { supabaseAdmin } = await import('@/lib/supabase-server')
     const { 
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature,
       order_id 
     } = await request.json()
+
+    console.log('Payment verification request:', {
+      razorpay_order_id,
+      razorpay_payment_id,
+      order_id: order_id?.substring(0, 8) + '...' // Log partial ID for security
+    })
 
     // Verify signature
     const body = razorpay_order_id + '|' + razorpay_payment_id
@@ -74,19 +80,25 @@ export async function PUT(request: NextRequest) {
     }
 
     // First, verify the order exists and is in pending status
-    const { data: existingOrder, error: fetchError } = await supabase
+    const { data: existingOrder, error: fetchError } = await supabaseAdmin
       .from('orders')
       .select('id, order_number, payment_status, status, total_amount')
       .eq('id', order_id)
       .single()
 
     if (fetchError || !existingOrder) {
-      console.error('Order not found:', fetchError)
+      console.error('Order lookup error:', fetchError, 'Order ID:', order_id)
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
       )
     }
+
+    console.log('Found order:', {
+      id: existingOrder.id,
+      order_number: existingOrder.order_number,
+      payment_status: existingOrder.payment_status
+    })
 
     // Check if payment is already processed
     if (existingOrder.payment_status === 'paid') {
@@ -98,7 +110,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update order with payment details and confirm the order
-    const { data: order, error } = await supabase
+    const { data: updatedOrders, error } = await supabaseAdmin
       .from('orders')
       .update({
         razorpay_order_id,
@@ -109,7 +121,6 @@ export async function PUT(request: NextRequest) {
       })
       .eq('id', order_id)
       .select()
-      .single()
 
     if (error) {
       console.error('Order update error:', error)
@@ -118,6 +129,17 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Check if the update was successful
+    if (!updatedOrders || updatedOrders.length === 0) {
+      console.error('Order update failed: No rows affected')
+      return NextResponse.json(
+        { error: 'Order not found or update failed' },
+        { status: 404 }
+      )
+    }
+
+    const order = updatedOrders[0]
 
     // Log successful payment for audit
     console.log(`Payment verified successfully for order ${order.order_number}:`, {

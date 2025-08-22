@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient()
     const orderData = await request.json()
+
+    console.log('Creating order with data:', {
+      customer_email: orderData.customer_email,
+      payment_method: orderData.payment_method,
+      total_amount: orderData.total_amount,
+      items_count: orderData.items?.length
+    })
 
     // Validate required fields
     if (!orderData.customer_name || !orderData.customer_email || !orderData.items || orderData.items.length === 0) {
@@ -47,13 +53,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const { data: variant, error: variantError } = await supabase
+      const { data: variant, error: variantError } = await supabaseAdmin
         .from('product_variants')
         .select('stock_quantity')
         .eq('id', item.variant_id)
         .single()
 
       if (variantError || !variant) {
+        console.error('Variant lookup error:', variantError, 'for item:', item.product_name)
         return NextResponse.json(
           { error: `Product variant not found for ${item.product_name}` },
           { status: 400 }
@@ -72,7 +79,7 @@ export async function POST(request: NextRequest) {
     const orderNumber = `RJ${Date.now().toString().slice(-8)}`
 
     // Create order
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
         user_id: orderData.user_id || null,
@@ -121,14 +128,14 @@ export async function POST(request: NextRequest) {
       total_price: item.total_price
     }))
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await supabaseAdmin
       .from('order_items')
       .insert(orderItems)
 
     if (itemsError) {
       console.error('Order items creation error:', itemsError)
       // Rollback order creation
-      await supabase.from('orders').delete().eq('id', order.id)
+      await supabaseAdmin.from('orders').delete().eq('id', order.id)
       return NextResponse.json(
         { error: 'Failed to create order items' },
         { status: 500 }
@@ -138,14 +145,14 @@ export async function POST(request: NextRequest) {
     // Update product variant stock
     for (const item of orderData.items) {
       if (item.variant_id) {
-        const { data: variant } = await supabase
+        const { data: variant } = await supabaseAdmin
           .from('product_variants')
           .select('stock_quantity')
           .eq('id', item.variant_id)
           .single()
 
         if (variant && variant.stock_quantity >= item.quantity) {
-          await supabase
+          await supabaseAdmin
             .from('product_variants')
             .update({ 
               stock_quantity: variant.stock_quantity - item.quantity 
@@ -158,14 +165,14 @@ export async function POST(request: NextRequest) {
     // Update coupon usage if applicable
     if (orderData.coupon_code) {
       // First get the current used_count
-      const { data: coupon } = await supabase
+      const { data: coupon } = await supabaseAdmin
         .from('coupons')
         .select('used_count')
         .eq('code', orderData.coupon_code)
         .single()
       
       if (coupon) {
-        await supabase
+        await supabaseAdmin
           .from('coupons')
           .update({ 
             used_count: coupon.used_count + 1

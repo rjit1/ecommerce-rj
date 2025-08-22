@@ -20,6 +20,7 @@ interface CheckoutContentProps {
 interface Address {
   id?: string
   full_name: string
+  email?: string
   phone: string
   address_line_1: string
   address_line_2?: string
@@ -96,7 +97,7 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
         notes: {
           order_id: order.id,
           customer_name: selectedAddress?.full_name || '',
-          customer_email: user?.email || 'guest@example.com'
+          customer_email: user?.email || selectedAddress?.email || 'guest@example.com'
         }
       }
 
@@ -145,7 +146,9 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
 
               // Wait a moment for user to see the success message
               setTimeout(() => {
-                router.push(`/orders?success=true&order=${order.order_number}&payment=verified`)
+                const email = encodeURIComponent(selectedAddress?.email || user?.email || 'guest@example.com')
+                const phone = encodeURIComponent(selectedAddress?.phone || '')
+                router.push(`/orders?success=true&order=${order.order_number}&payment=verified&email=${email}&phone=${phone}`)
               }, 1500)
             } else {
               throw new Error(verification.message || 'Payment verification failed')
@@ -162,7 +165,9 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
             // Don't clear cart on verification failure - user can retry
             // Redirect to orders page with error flag so user can see their order status
             setTimeout(() => {
-              router.push(`/orders?error=verification&order=${order.order_number}`)
+              const email = encodeURIComponent(selectedAddress?.email || user?.email || 'guest@example.com')
+              const phone = encodeURIComponent(selectedAddress?.phone || '')
+              router.push(`/orders?error=verification&order=${order.order_number}&email=${email}&phone=${phone}`)
             }, 3000)
           } finally {
             setIsProcessing(false)
@@ -170,7 +175,7 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
         },
         prefill: {
           name: selectedAddress?.full_name || '',
-          email: user?.email || '',
+          email: user?.email || selectedAddress?.email || '',
           contact: selectedAddress?.phone || ''
         },
         notes: {
@@ -232,7 +237,7 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
         user_id: user?.id || null,
         payment_method: paymentMethod,
         customer_name: selectedAddress.full_name,
-        customer_email: user?.email || 'guest@example.com', // For guest users
+        customer_email: user?.email || selectedAddress.email || 'guest@example.com', // For guest users
         customer_phone: selectedAddress.phone,
         shipping_address_line_1: selectedAddress.address_line_1,
         shipping_address_line_2: selectedAddress.address_line_2,
@@ -281,7 +286,9 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
         // COD order
         clearCart()
         toast.success('Order placed successfully! Pay when delivered.')
-        router.push(`/orders?success=true&order=${result.order.order_number}`)
+        const email = encodeURIComponent(selectedAddress?.email || user?.email || 'guest@example.com')
+        const phone = encodeURIComponent(selectedAddress?.phone || '')
+        router.push(`/orders?success=true&order=${result.order.order_number}&email=${email}&phone=${phone}`)
       }
     } catch (error) {
       console.error('Order placement error:', error)

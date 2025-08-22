@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MapPin, Plus, Check, User, Phone, Home } from 'lucide-react'
+import { MapPin, Plus, Check, User, Phone, Home, Mail } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react'
 import toast from 'react-hot-toast'
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 interface Address {
   id?: string
   full_name: string
+  email?: string
   phone: string
   address_line_1: string
   address_line_2?: string
@@ -30,6 +31,7 @@ export default function AddressForm({ onAddressSelect, selectedAddress }: Addres
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<Address>({
     full_name: '',
+    email: '',
     phone: '',
     address_line_1: '',
     address_line_2: '',
@@ -42,10 +44,14 @@ export default function AddressForm({ onAddressSelect, selectedAddress }: Addres
   const user = useUser()
   const supabase = useSupabaseClient()
 
-  // Load saved addresses for authenticated users
+  // Load saved addresses for authenticated users and pre-populate email
   useEffect(() => {
     if (user) {
       loadSavedAddresses()
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || ''
+      }))
     }
   }, [user])
 
@@ -82,6 +88,12 @@ export default function AddressForm({ onAddressSelect, selectedAddress }: Addres
     if (!formData.full_name.trim() || !formData.phone.trim() || !formData.address_line_1.trim() || 
         !formData.city.trim() || !formData.state.trim() || !formData.postal_code.trim()) {
       toast.error('Please fill in all required fields')
+      return
+    }
+
+    // Email validation for guest users
+    if (!user && (!formData.email?.trim() || !formData.email.includes('@'))) {
+      toast.error('Please enter a valid email address')
       return
     }
 
@@ -126,6 +138,7 @@ export default function AddressForm({ onAddressSelect, selectedAddress }: Addres
   const resetForm = () => {
     setFormData({
       full_name: '',
+      email: user?.email || '',
       phone: '',
       address_line_1: '',
       address_line_2: '',
@@ -249,6 +262,32 @@ export default function AddressForm({ onAddressSelect, selectedAddress }: Addres
                     </div>
                   </div>
 
+                  <div>
+                    <label className="form-label">
+                      Email Address {!user && '*'}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className="input pl-10"
+                        placeholder="Enter email address"
+                        required={!user}
+                        disabled={!!user}
+                      />
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    {user && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Using your account email
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   <div>
                     <label className="form-label">Phone Number *</label>
                     <div className="relative">

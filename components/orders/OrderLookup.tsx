@@ -1,20 +1,92 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, Package, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Package, AlertCircle, List } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Order } from '@/types'
 import OrderDetails from './OrderDetails'
+import OrdersList from './OrdersList'
 
-export default function OrderLookup() {
+interface OrderLookupProps {
+  initialContactInfo?: {
+    email?: string
+    phone?: string
+  }
+}
+
+export default function OrderLookup({ initialContactInfo }: OrderLookupProps) {
   const [formData, setFormData] = useState({
-    email: '',
-    phone: '',
+    email: initialContactInfo?.email || '',
+    phone: initialContactInfo?.phone || '',
     orderNumber: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [order, setOrder] = useState<Order | null>(null)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [isMultiple, setIsMultiple] = useState(false)
+  const [lookupMode, setLookupMode] = useState<'single' | 'all'>(() => {
+    // If initial contact info is provided, default to 'all' mode
+    return (initialContactInfo?.email || initialContactInfo?.phone) ? 'all' : 'single'
+  })
+  const [autoSearchTriggered, setAutoSearchTriggered] = useState(false)
+
+  // Auto-search function
+  const performAutoSearch = async () => {
+    if (!formData.email.trim() && !formData.phone.trim()) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const requestBody = {
+        email: formData.email.trim(),
+        phone: formData.phone.trim()
+      }
+
+      const response = await fetch('/api/orders/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        if (data.isMultiple) {
+          setOrders(data.orders)
+          setIsMultiple(true)
+          setOrder(null)
+        } else {
+          setOrder(data.order)
+          setOrders([])
+          setIsMultiple(false)
+        }
+      } else {
+        setError(data.error || 'Failed to find order(s)')
+      }
+    } catch (error) {
+      console.error('Auto order lookup error:', error)
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Auto-search when initial contact info is provided
+  useEffect(() => {
+    if ((initialContactInfo?.email || initialContactInfo?.phone) && !autoSearchTriggered) {
+      setAutoSearchTriggered(true)
+      // Trigger search after a brief delay to ensure the component is fully mounted
+      setTimeout(() => {
+        performAutoSearch()
+      }, 500)
+    }
+  }, [initialContactInfo, autoSearchTriggered, formData.email, formData.phone])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -30,8 +102,8 @@ export default function OrderLookup() {
     e.preventDefault()
     
     // Validation
-    if (!formData.orderNumber.trim()) {
-      setError('Order number is required')
+    if (lookupMode === 'single' && !formData.orderNumber.trim()) {
+      setError('Order number is required for single order lookup')
       return
     }
 
@@ -54,24 +126,38 @@ export default function OrderLookup() {
     setError('')
 
     try {
+      const requestBody: any = {
+        email: formData.email.trim(),
+        phone: formData.phone.trim()
+      }
+
+      // Only include order number for single lookup mode
+      if (lookupMode === 'single' && formData.orderNumber.trim()) {
+        requestBody.orderNumber = formData.orderNumber.trim()
+      }
+
       const response = await fetch('/api/orders/lookup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          phone: formData.phone.trim(),
-          orderNumber: formData.orderNumber.trim()
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        setOrder(data.order)
+        if (data.isMultiple) {
+          setOrders(data.orders)
+          setIsMultiple(true)
+          setOrder(null)
+        } else {
+          setOrder(data.order)
+          setOrders([])
+          setIsMultiple(false)
+        }
       } else {
-        setError(data.error || 'Failed to find order')
+        setError(data.error || 'Failed to find order(s)')
       }
     } catch (error) {
       console.error('Order lookup error:', error)
@@ -82,8 +168,14 @@ export default function OrderLookup() {
   }
 
   const handleReset = () => {
-    setFormData({ email: '', phone: '', orderNumber: '' })
+    setFormData({ 
+      email: initialContactInfo?.email || '', 
+      phone: initialContactInfo?.phone || '', 
+      orderNumber: '' 
+    })
     setOrder(null)
+    setOrders([])
+    setIsMultiple(false)
     setError('')
   }
 
@@ -104,6 +196,36 @@ export default function OrderLookup() {
     )
   }
 
+  if (isMultiple && orders.length > 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Your Orders ({orders.length} {orders.length === 1 ? 'order' : 'orders'} found)
+          </h2>
+          <button
+            onClick={handleReset}
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            New Search
+          </button>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start space-x-3">
+            <Package className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-medium text-blue-900">Orders Found</h3>
+              <p className="text-sm text-blue-700 mt-1">
+                Showing all orders associated with your contact information.
+              </p>
+            </div>
+          </div>
+        </div>
+        <OrdersList orders={orders} hideAuth={true} />
+      </div>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -115,28 +237,58 @@ export default function OrderLookup() {
         <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Package className="w-8 h-8 text-primary-600" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Track Your Order</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Find Your Orders</h2>
         <p className="text-gray-600">
-          Enter your order details to check the status of your order
+          Search for a specific order or view all your orders
         </p>
       </div>
 
+      {/* Lookup Mode Toggle */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
+        <button
+          type="button"
+          onClick={() => setLookupMode('single')}
+          className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-colors duration-200 ${
+            lookupMode === 'single'
+              ? 'bg-white text-primary-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Search className="w-4 h-4" />
+          <span>Find Specific Order</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setLookupMode('all')}
+          className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-colors duration-200 ${
+            lookupMode === 'all'
+              ? 'bg-white text-primary-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <List className="w-4 h-4" />
+          <span>View All Orders</span>
+        </button>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="orderNumber" className="block text-sm font-medium text-gray-700 mb-2">
-            Order Number *
-          </label>
-          <input
-            type="text"
-            id="orderNumber"
-            name="orderNumber"
-            value={formData.orderNumber}
-            onChange={handleInputChange}
-            placeholder="e.g., RJ20241201001"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
-            required
-          />
-        </div>
+        {lookupMode === 'single' && (
+          <div>
+            <label htmlFor="orderNumber" className="block text-sm font-medium text-gray-700 mb-2">
+              Order Number *
+            </label>
+            <input
+              type="text"
+              id="orderNumber"
+              name="orderNumber"
+              value={formData.orderNumber}
+              onChange={handleInputChange}
+              placeholder="e.g., RJ20241201001"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
+              required
+            />
+          </div>
+        )}
 
         <div className="space-y-4">
           <p className="text-sm font-medium text-gray-700">
@@ -201,8 +353,8 @@ export default function OrderLookup() {
             </>
           ) : (
             <>
-              <Search className="w-5 h-5" />
-              <span>Find My Order</span>
+              {lookupMode === 'single' ? <Search className="w-5 h-5" /> : <List className="w-5 h-5" />}
+              <span>{lookupMode === 'single' ? 'Find My Order' : 'View All My Orders'}</span>
             </>
           )}
         </button>

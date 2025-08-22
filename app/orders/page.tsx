@@ -14,9 +14,12 @@ import toast from 'react-hot-toast'
 export default function OrdersPage() {
   const user = useUser()
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState<'my-orders' | 'track-order'>(
-    user ? 'my-orders' : 'track-order'
-  )
+  const [activeTab, setActiveTab] = useState<'my-orders' | 'track-order'>(() => {
+    // If email or phone is provided in URL, default to track-order tab
+    const hasContactInfo = searchParams.get('email') || searchParams.get('phone')
+    if (hasContactInfo) return 'track-order'
+    return user ? 'my-orders' : 'track-order'
+  })
   const [statusMessage, setStatusMessage] = useState<{
     type: 'success' | 'error' | 'warning'
     title: string
@@ -194,7 +197,10 @@ export default function OrdersPage() {
           {/* Tab Content */}
           <div className="min-h-[400px]">
             {activeTab === 'my-orders' && user && <OrdersList />}
-            {activeTab === 'track-order' && <OrderLookup />}
+            {activeTab === 'track-order' && <OrderLookup initialContactInfo={{
+              email: searchParams.get('email') || undefined,
+              phone: searchParams.get('phone') || undefined
+            }} />}
             {activeTab === 'my-orders' && !user && (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">

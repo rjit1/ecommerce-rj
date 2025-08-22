@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { supabaseAdmin } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient()
     const { email, phone, orderNumber } = await request.json()
+
+    console.log('Order lookup request:', { email: email ? 'provided' : 'not provided', phone: phone ? 'provided' : 'not provided', orderNumber })
 
     // Validate input
     if (!email && !phone) {
@@ -14,15 +15,89 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // If no order number provided, fetch all orders for the contact info
     if (!orderNumber) {
-      return NextResponse.json(
-        { error: 'Order number is required' },
-        { status: 400 }
-      )
+      console.log('Fetching all orders for contact info')
+      
+      // Build query for multiple orders
+      let query = supabaseAdmin
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            *,
+            product:products(name, slug),
+            variant:product_variants(size, color)
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      // Add email or phone condition
+      if (email && phone) {
+        query = query.or(`customer_email.eq.${email.toLowerCase()},customer_phone.eq.${phone}`)
+      } else if (email) {
+        query = query.eq('customer_email', email.toLowerCase())
+      } else if (phone) {
+        query = query.eq('customer_phone', phone)
+      }
+
+      const { data: orders, error } = await query
+
+      if (error) {
+        console.error('Orders lookup error:', error)
+        return NextResponse.json(
+          { error: 'Failed to lookup orders' },
+          { status: 500 }
+        )
+      }
+
+      if (!orders || orders.length === 0) {
+        return NextResponse.json(
+          { error: 'No orders found with the provided contact information' },
+          { status: 404 }
+        )
+      }
+
+      // Return all orders for this contact info
+      const sanitizedOrders = orders.map(order => ({
+        id: order.id,
+        order_number: order.order_number,
+        status: order.status,
+        payment_method: order.payment_method,
+        payment_status: order.payment_status,
+        customer_name: order.customer_name,
+        customer_email: order.customer_email,
+        customer_phone: order.customer_phone,
+        shipping_address_line_1: order.shipping_address_line_1,
+        shipping_address_line_2: order.shipping_address_line_2,
+        shipping_city: order.shipping_city,
+        shipping_state: order.shipping_state,
+        shipping_postal_code: order.shipping_postal_code,
+        shipping_country: order.shipping_country,
+        subtotal: order.subtotal,
+        discount_amount: order.discount_amount,
+        applied_delivery_fee: order.applied_delivery_fee,
+        total_amount: order.total_amount,
+        coupon_code: order.coupon_code,
+        coupon_discount: order.coupon_discount,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+        delivered_at: order.delivered_at,
+        order_items: order.order_items
+      }))
+
+      return NextResponse.json({ 
+        success: true, 
+        orders: sanitizedOrders,
+        isMultiple: true
+      })
     }
 
-    // Build query conditions
-    let query = supabase
+    // Single order lookup with order number
+    console.log('Looking up specific order:', orderNumber)
+    
+    // Build query conditions for single order
+    let query = supabaseAdmin
       .from('orders')
       .select(`
         *,

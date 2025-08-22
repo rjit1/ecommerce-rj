@@ -29,6 +29,8 @@ export default function SessionRefresh() {
             console.log('Session found after magic link, refreshing UI...')
             // Force a full page refresh to update all components
             window.location.reload()
+          } else if (error) {
+            console.warn('Session refresh error (expected for guest users):', error.message)
           }
         } catch (error) {
           console.error('Error refreshing session:', error)

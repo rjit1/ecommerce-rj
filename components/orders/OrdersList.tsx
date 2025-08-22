@@ -8,49 +8,37 @@ import { motion } from 'framer-motion'
 import { formatCurrency, formatDate, getImageUrl } from '@/utils/helpers'
 import { createRazorpayOrder, verifyRazorpayPayment, openRazorpayCheckout, initializeRazorpay } from '@/utils/razorpay'
 import { useSupabaseClient } from '@supabase/auth-helpers-react'
+import { Order } from '@/types'
 import toast from 'react-hot-toast'
 
-interface Order {
-  id: string
-  order_number: string
-  status: string
-  payment_method: string
-  payment_status: string
-  total_amount: number
-  created_at: string
-  order_items: Array<{
-    id: string
-    product_name: string
-    product_image: string
-    size: string
-    color: string
-    quantity: number
-    unit_price: number
-    total_price: number
-    product: {
-      name: string
-      slug: string
-    }
-    variant: {
-      size: string
-      color: string
-    }
-  }>
+interface OrdersListProps {
+  orders?: Order[]
+  hideAuth?: boolean
 }
 
-export default function OrdersList() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
+export default function OrdersList({ orders: externalOrders, hideAuth = false }: OrdersListProps) {
+  const [orders, setOrders] = useState<Order[]>(externalOrders || [])
+  const [loading, setLoading] = useState(!externalOrders)
   const [error, setError] = useState('')
   const [retryingPayment, setRetryingPayment] = useState<string | null>(null)
   
   const supabase = useSupabaseClient()
 
   useEffect(() => {
-    fetchOrders()
-  }, [])
+    if (externalOrders) {
+      setOrders(externalOrders)
+      setLoading(false)
+    } else {
+      fetchOrders()
+    }
+  }, [externalOrders])
 
   const fetchOrders = async () => {
+    if (externalOrders) {
+      // Don't fetch if external orders are provided
+      return
+    }
+    
     try {
       const response = await fetch('/api/orders', {
         headers: {
@@ -62,7 +50,7 @@ export default function OrdersList() {
       if (response.ok) {
         setOrders(data.orders || [])
       } else {
-        if (response.status === 401) {
+        if (response.status === 401 && !hideAuth) {
           setError('Please sign in to view your orders')
         } else {
           setError(data.error || 'Failed to fetch orders')
@@ -152,6 +140,9 @@ export default function OrdersList() {
           name: '',
           email: '',
           contact: ''
+        },
+        notes: {
+          address: ''
         },
         theme: {
           color: '#2563eb'
@@ -320,7 +311,7 @@ export default function OrdersList() {
                 )}
               </div>
               <span>
-                {order.order_items.length} {order.order_items.length === 1 ? 'item' : 'items'}
+                {(order.order_items || order.items || []).length} {(order.order_items || order.items || []).length === 1 ? 'item' : 'items'}
               </span>
             </div>
           </div>
@@ -328,7 +319,7 @@ export default function OrdersList() {
           {/* Order Items */}
           <div className="p-6">
             <div className="space-y-4">
-              {order.order_items.map((item) => (
+              {(order.order_items || order.items || []).map((item) => (
                 <div key={item.id} className="flex items-center space-x-4">
                   <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
                     <Image
