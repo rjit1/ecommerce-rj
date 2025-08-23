@@ -65,26 +65,34 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
   const [initialized, setInitialized] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const user = useUser()
   const supabase = createSupabaseClient()
+
+  // Ensure we're on the client side
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Calculate totals
   const { subtotal, totalItems, totalQuantity } = calculateCartTotal(items)
 
   // Load cart from localStorage for guest users
   const loadGuestCart = useCallback(() => {
-    if (!user) {
+    if (!user && isClient) {
       const guestCart = getFromLocalStorage<CartItem[]>('guest_cart', [])
+      console.log('Loading guest cart:', guestCart)
       setItems(guestCart)
     }
-  }, [user])
+  }, [user, isClient])
 
   // Save cart to localStorage for guest users
   const saveGuestCart = useCallback((cartItems: CartItem[]) => {
-    if (!user) {
+    if (!user && isClient) {
+      console.log('Saving guest cart:', cartItems)
       setToLocalStorage('guest_cart', cartItems)
     }
-  }, [user])
+  }, [user, isClient])
 
   // Load cart from database for authenticated users
   const loadUserCart = useCallback(async () => {
@@ -365,8 +373,9 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
   // Initialize cart
   useEffect(() => {
     const initializeCart = async () => {
-      if (initialized) return
+      if (initialized || !isClient) return
       
+      console.log('Initializing cart for user:', user?.id || 'guest')
       setLoading(true)
       try {
         if (user) {
@@ -383,7 +392,14 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
     }
     
     initializeCart()
-  }, [user, loadUserCart, loadGuestCart])
+  }, [user, loadUserCart, loadGuestCart, initialized, isClient])
+
+  // Re-initialize cart when user status changes (login/logout)
+  useEffect(() => {
+    if (initialized && user !== null) {
+      setInitialized(false)
+    }
+  }, [user, initialized])
 
   // Merge guest cart on user login
   useEffect(() => {

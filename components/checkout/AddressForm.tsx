@@ -102,18 +102,38 @@ export default function AddressForm({ onAddressSelect, selectedAddress }: Addres
     try {
       // Save address for authenticated users
       if (user) {
+        console.log('Attempting to save address for user:', user.id)
+        console.log('Form data:', formData)
+        console.log('Saved addresses count:', savedAddresses.length)
+        
+        const addressData = {
+          user_id: user.id,
+          full_name: formData.full_name.trim(),
+          phone: formData.phone.trim(),
+          address_line_1: formData.address_line_1.trim(),
+          address_line_2: formData.address_line_2?.trim() || null,
+          city: formData.city.trim(),
+          state: formData.state,
+          postal_code: formData.postal_code.trim(),
+          country: formData.country,
+          is_default: savedAddresses.length === 0
+        }
+        
+        console.log('Address data to insert:', addressData)
+        
         const { data, error } = await supabase
           .from('user_addresses')
-          .insert({
-            user_id: user.id,
-            ...formData,
-            is_default: savedAddresses.length === 0 // First address becomes default
-          })
+          .insert(addressData)
           .select()
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('Database error details:', error)
+          throw error
+        }
 
+        console.log('Address saved successfully:', data)
+        
         // Update saved addresses
         await loadSavedAddresses()
         toast.success('Address saved successfully!')
@@ -123,13 +143,28 @@ export default function AddressForm({ onAddressSelect, selectedAddress }: Addres
       } else {
         // For guest users, just use the form data
         onAddressSelect(formData)
+        toast.success('Address selected for checkout!')
       }
 
       setShowNewAddressForm(false)
       resetForm()
     } catch (error) {
       console.error('Error saving address:', error)
-      toast.error('Failed to save address')
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('permission')) {
+          toast.error('Permission denied. Please try logging out and back in.')
+        } else if (error.message.includes('duplicate')) {
+          toast.error('This address already exists.')
+        } else if (error.message.includes('violates check')) {
+          toast.error('Please check all required fields are filled correctly.')
+        } else {
+          toast.error(`Failed to save address: ${error.message}`)
+        }
+      } else {
+        toast.error('Failed to save address. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
