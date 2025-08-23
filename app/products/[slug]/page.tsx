@@ -117,9 +117,10 @@ async function getProduct(slug: string): Promise<Product | null> {
   }
 }
 
-async function getRelatedProducts(categoryId: string, currentProductId: string): Promise<Product[]> {
+async function getRelatedProducts(categoryId: string, currentProductId: string, currentPrice: number): Promise<Product[]> {
   try {
-    const { data: products } = await supabaseAdmin
+    // Get products from same category
+    const { data: categoryProducts } = await supabaseAdmin
       .from('products')
       .select(`
         *,
@@ -130,12 +131,102 @@ async function getRelatedProducts(categoryId: string, currentProductId: string):
       .eq('category_id', categoryId)
       .eq('is_active', true)
       .neq('id', currentProductId)
-      .limit(8)
+      .limit(6)
 
-    return products?.map(product => ({
+    // Get featured products from different categories
+    const { data: featuredProducts } = await supabaseAdmin
+      .from('products')
+      .select(`
+        *,
+        category:categories(name),
+        images:product_images(image_url, alt_text, display_order),
+        variants:product_variants(*)
+      `)
+      .eq('is_featured', true)
+      .eq('is_active', true)
+      .neq('id', currentProductId)
+      .neq('category_id', categoryId)
+      .limit(4)
+
+    // Get trending products
+    const { data: trendingProducts } = await supabaseAdmin
+      .from('products')
+      .select(`
+        *,
+        category:categories(name),
+        images:product_images(image_url, alt_text, display_order),
+        variants:product_variants(*)
+      `)
+      .eq('is_trending', true)
+      .eq('is_active', true)
+      .neq('id', currentProductId)
+      .limit(4)
+
+    // Get hot sale products
+    const { data: hotSaleProducts } = await supabaseAdmin
+      .from('products')
+      .select(`
+        *,
+        category:categories(name),
+        images:product_images(image_url, alt_text, display_order),
+        variants:product_variants(*)
+      `)
+      .eq('is_hot_sale', true)
+      .eq('is_active', true)
+      .neq('id', currentProductId)
+      .limit(4)
+
+    // Get products in similar price range (±30% of current price)
+    const priceMin = currentPrice * 0.7
+    const priceMax = currentPrice * 1.3
+    const { data: similarPriceProducts } = await supabaseAdmin
+      .from('products')
+      .select(`
+        *,
+        category:categories(name),
+        images:product_images(image_url, alt_text, display_order),
+        variants:product_variants(*)
+      `)
+      .gte('price', priceMin)
+      .lte('price', priceMax)
+      .eq('is_active', true)
+      .neq('id', currentProductId)
+      .neq('category_id', categoryId)
+      .limit(3)
+
+    // Combine all products and remove duplicates
+    const allProducts = [
+      ...(categoryProducts || []),
+      ...(featuredProducts || []),
+      ...(trendingProducts || []),
+      ...(hotSaleProducts || []),
+      ...(similarPriceProducts || [])
+    ]
+
+    // Remove duplicates based on product id
+    const uniqueProducts = allProducts.filter((product, index, self) => 
+      index === self.findIndex(p => p.id === product.id)
+    )
+
+    // Sort by priority: featured > trending > hot sale > same category > similar price
+    const sortedProducts = uniqueProducts.sort((a, b) => {
+      const getScore = (product: any) => {
+        let score = 0
+        if (product.is_featured) score += 100
+        if (product.is_trending) score += 80
+        if (product.is_hot_sale) score += 60
+        if (product.category_id === categoryId) score += 40
+        if (product.price >= priceMin && product.price <= priceMax) score += 20
+        return score
+      }
+      return getScore(b) - getScore(a)
+    })
+
+    // Take top 12 products and add featured_image
+    return sortedProducts.slice(0, 12).map(product => ({
       ...product,
       featured_image: product.images?.[0]?.image_url || null
-    })) as Product[] || []
+    })) as Product[]
   } catch (error) {
     console.error('Error fetching related products:', error)
     return []
@@ -150,7 +241,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const relatedProducts = product.category_id 
-    ? await getRelatedProducts(product.category_id, product.id)
+    ? await getRelatedProducts(product.category_id, product.id, product.discount_price || product.price)
     : []
 
   return (
@@ -163,7 +254,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
 
       {relatedProducts.length > 0 && (
-        <RelatedProducts products={relatedProducts} />
+        <RelatedProducts 
+          products={relatedProducts} 
+          currentProduct={product}
+        />
       )}
 
       <Footer />

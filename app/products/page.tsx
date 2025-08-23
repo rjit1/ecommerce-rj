@@ -164,11 +164,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       <TopHeader />
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Filters Sidebar */}
-          <aside className="lg:w-64 flex-shrink-0">
-            <Suspense fallback={<div className="animate-pulse bg-gray-200 h-96 rounded-lg" />}>
+          <aside className="lg:w-72 xl:w-80 flex-shrink-0">
+            <Suspense fallback={
+              <div className="animate-pulse">
+                <div className="bg-gray-200 h-16 rounded-xl mb-4 lg:hidden"></div>
+                <div className="bg-gray-200 h-96 rounded-xl hidden lg:block"></div>
+              </div>
+            }>
               <ProductFilters 
                 categories={categories}
                 searchParams={searchParams}
@@ -177,8 +182,17 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           </aside>
 
           {/* Products Grid */}
-          <div className="flex-1">
-            <Suspense fallback={<div className="animate-pulse bg-gray-200 h-96 rounded-lg" />}>
+          <div className="flex-1 min-w-0">
+            <Suspense fallback={
+              <div className="animate-pulse">
+                <div className="bg-gray-200 h-12 rounded-lg mb-6"></div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Array(12).fill(0).map((_, i) => (
+                    <div key={i} className="bg-gray-200 h-64 rounded-lg"></div>
+                  ))}
+                </div>
+              </div>
+            }>
               <ProductsGrid
                 products={products}
                 totalCount={totalCount}

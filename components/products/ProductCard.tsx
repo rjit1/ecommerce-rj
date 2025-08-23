@@ -149,13 +149,21 @@ export default function ProductCard({ product, className = '' }: ProductCardProp
               </span>
             )}
             
-            <h3 className="font-bold text-gray-900 mb-1 sm:mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors duration-200 text-sm sm:text-base lg:text-lg">
+            <h3 className="font-bold text-gray-900 mb-1 sm:mb-2 truncate overflow-hidden whitespace-nowrap group-hover:text-primary-600 transition-colors duration-200 text-sm sm:text-base lg:text-lg" title={product.name}>
               {product.name}
             </h3>
             
-            {/* Hide description on mobile for space */}
+            {/* Always show description but limit to exactly 2 lines */}
             {product.description && (
-              <p className="hidden sm:block text-sm text-gray-600 mb-3 line-clamp-2">
+              <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 overflow-hidden" 
+                 style={{
+                   display: '-webkit-box',
+                   WebkitLineClamp: 2,
+                   WebkitBoxOrient: 'vertical',
+                   lineHeight: '1.4em',
+                   maxHeight: '2.8em'
+                 }}
+                 title={product.description}>
                 {product.description}
               </p>
             )}
