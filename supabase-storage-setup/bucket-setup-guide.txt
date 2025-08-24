@@ -1,0 +1,164 @@
+# SUPABASE STORAGE BUCKET SETUP GUIDE
+# =====================================
+# Complete setup guide for RJ4WEAR E-commerce Image Storage
+
+## 📋 OVERVIEW
+This guide will help you set up all required storage buckets for the RJ4WEAR e-commerce platform.
+
+## 🗂️ REQUIRED BUCKETS
+
+### 1. Products Bucket
+- **Name**: `products`
+- **Purpose**: Store product images (multiple per product)
+- **Folder Structure**: `products/{timestamp}-{random}.{ext}`
+- **Access**: Public read, Admin write
+
+### 2. Banners Bucket  
+- **Name**: `banners`
+- **Purpose**: Store banner/slider images
+- **Folder Structure**: `banners/{timestamp}-{random}.{ext}`
+- **Access**: Public read, Admin write
+
+### 3. Categories Bucket
+- **Name**: `categories`
+- **Purpose**: Store category thumbnail images
+- **Folder Structure**: `categories/{timestamp}-{random}.{ext}`
+- **Access**: Public read, Admin write
+
+### 4. Product Variants Bucket (Future Use)
+- **Name**: `variants`
+- **Purpose**: Store variant-specific images (color/size variations)
+- **Folder Structure**: `variants/{timestamp}-{random}.{ext}`
+- **Access**: Public read, Admin write
+
+## 🚀 STEP-BY-STEP SETUP
+
+### Step 1: Access Supabase Dashboard
+1. Go to your Supabase project dashboard
+2. Navigate to "Storage" in the left sidebar
+3. Click on "Create a new bucket"
+
+### Step 2: Create Buckets
+
+#### Create 'products' Bucket:
+1. **Bucket Name**: `products`
+2. **Public Bucket**: ✅ YES (check this option)
+3. **File Size Limit**: 50MB (recommended)
+4. **Allowed MIME Types**: image/* (images only)
+5. Click "Create bucket"
+
+#### Create 'banners' Bucket:
+1. **Bucket Name**: `banners`
+2. **Public Bucket**: ✅ YES (check this option)
+3. **File Size Limit**: 50MB (recommended)
+4. **Allowed MIME Types**: image/* (images only)
+5. Click "Create bucket"
+
+#### Create 'categories' Bucket:
+1. **Bucket Name**: `categories`
+2. **Public Bucket**: ✅ YES (check this option)
+3. **File Size Limit**: 10MB (smaller files)
+4. **Allowed MIME Types**: image/* (images only)
+5. Click "Create bucket"
+
+#### Create 'variants' Bucket (Optional - Future Use):
+1. **Bucket Name**: `variants`
+2. **Public Bucket**: ✅ YES (check this option)
+3. **File Size Limit**: 50MB (recommended)
+4. **Allowed MIME Types**: image/* (images only)
+5. Click "Create bucket"
+
+### Step 3: Configure Bucket Policies
+After creating buckets, you need to set up proper RLS (Row Level Security) policies.
+
+⚠️ **IMPORTANT**: Run the SQL files in the next step to configure proper access policies.
+
+## 📁 EXPECTED FOLDER STRUCTURE
+
+After setup, your Supabase Storage should look like:
+
+```
+📂 products/
+├── products/
+│   ├── 1703234567890-abc123.jpg
+│   ├── 1703234567891-def456.webp
+│   └── ...
+└── banners/
+    ├── 1703234567892-ghi789.jpg
+    └── ...
+
+📂 banners/
+├── 1703234567893-jkl012.jpg
+├── 1703234567894-mno345.png
+└── ...
+
+📂 categories/  
+├── 1703234567895-pqr678.jpg
+├── 1703234567896-stu901.webp
+└── ...
+
+📂 variants/ (Future)
+├── 1703234567897-vwx234.jpg
+└── ...
+```
+
+## ✅ VERIFICATION STEPS
+
+### 1. Check Bucket Creation:
+- Go to Storage > View buckets
+- Verify all buckets are created and marked as "Public"
+
+### 2. Test Upload:
+- Click on a bucket
+- Try uploading a test image
+- Verify the image is publicly accessible
+
+### 3. Check URLs:
+Your images should be accessible at:
+`https://[your-project-id].supabase.co/storage/v1/object/public/[bucket-name]/[file-path]`
+
+Example:
+`https://abcd1234.supabase.co/storage/v1/object/public/products/products/1703234567890-abc123.jpg`
+
+## 🔧 TROUBLESHOOTING
+
+### Issue 1: "Bucket creation failed"
+- Check your project permissions
+- Ensure you have owner/admin role
+- Try refreshing the dashboard
+
+### Issue 2: "Files not publicly accessible"
+- Verify bucket is marked as "Public"
+- Check RLS policies (run the SQL policy files)
+- Test with a different file
+
+### Issue 3: "Upload fails from admin panel"
+- Check Supabase project URL and keys in .env
+- Verify bucket names match exactly in code
+- Check file size limits
+
+## 🔒 SECURITY NOTES
+
+- Buckets are public for read access (required for website images)
+- Write access is controlled by RLS policies (admin users only)
+- File uploads are validated on the frontend (5MB limit, image types only)
+- All uploads generate unique filenames to prevent conflicts
+
+## 📞 SUPPORT
+
+If you encounter issues:
+1. Check Supabase documentation
+2. Verify environment variables
+3. Test with a simple upload script
+4. Check browser console for errors
+
+## 🎯 NEXT STEPS
+
+After creating buckets:
+1. Run the SQL policy files (bucket-policies-setup.sql)
+2. Test image uploads through admin panel
+3. Verify images display correctly on website
+4. Set up monitoring and backup policies (optional)
+
+---
+✅ **SETUP COMPLETE**: All storage buckets are now ready for the RJ4WEAR e-commerce platform!
