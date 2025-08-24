@@ -1,0 +1,193 @@
+# RJ4WEAR Admin Panel – Full Development Guide
+
+---
+
+## 📊 Project Summary
+
+This is a full-feature, production-level **Admin Panel** for managing the RJ4WEAR clothing e-commerce system. The admin panel supports full product, category, order, user, coupon, and setting management using a mobile-first UI with fast performance and real-time Supabase database integration.
+
+---
+
+## 💻 Tech Stack
+
+### Frontend:
+
+* **React.js** (latest)
+* **Next.js** (App Router or Pages Router)
+* **Tailwind CSS** (with responsive utilities and theming)
+* **Framer Motion** (page transitions, card fade-ins, smooth animations)
+
+### Backend:
+
+* **Supabase**
+
+  * PostgreSQL Database (tables defined in `supabase.sql`)
+  * Supabase Auth (Admin-only login via email/password)
+  * Supabase Storage (product images, banners, etc.)
+  * Edge Functions / API Routes (e.g. webhook, ISR revalidation)
+
+### Deployment:
+
+* **Vercel** 
+
+---
+
+## 🔐 Auth
+
+* Admin logs in via email and password (via Supabase Auth)
+* Only allow admin-level access using `is_admin()` function
+* Routes are protected (redirect if not authenticated)
+
+---
+
+## 📅 Pages Overview
+
+### 1. **Login Page**
+
+* Simple form with email + password fields
+* Auth via Supabase client SDK
+* Optional Magic Link login for fallback access
+
+### 2. **Dashboard Page** (optional for v1)
+
+* Total Orders
+* Revenue summary
+* Users count
+* Low stock alerts
+* Pull from pre-created Supabase view if available
+
+### 3. **Products Panel**
+
+* List all products
+* Actions:
+
+  * Add new product
+  * Edit product details
+  * Upload multiple product images
+  * Map sizes to colors
+  * Stock count per variant
+  * Toggle:
+
+    * `is_featured`
+    * `is_trending`
+    * `is_hot_sale`
+* On submission, update Supabase and revalidate ISR path for product page
+
+### 4. **Categories Panel**
+
+* Add new category
+* Edit existing (name, visibility)
+* Delete category
+* Sort order supported
+
+### 5. **Orders Panel**
+
+* View order list (latest first)
+* Filter by payment type, status
+* Status: Pending, Confirmed, Shipped, Delivered
+* View items in each order
+* Show delivery fee, payment status
+* Update status (for COD orders)
+
+### 6. **User Panel**
+
+* View list of all users from `user_profiles`
+* View order history for each user
+* View associated addresses
+
+### 7. **Coupon Panel**
+
+* Create coupon codes with:
+
+  * Type: Flat (₹) or Percentage (%)
+  * Min order value
+  * Max usage
+  * Expiry date
+* Enable/disable or delete coupon
+
+### 8. **Banner Manager**
+
+* Upload homepage banners
+* Fields:
+
+  * Title (optional)
+  * Image
+  * Link URL (optional)
+  * Active toggle
+* Save to Supabase Storage under `banners` bucket
+
+### 9. **Site Settings Page**
+
+* Controls stored in `site_settings` table:
+
+  * **Top Header Text** (string)
+  * **Top Header Enabled** (boolean)
+  * **COD Fee** (`delivery_fee` key)
+  * **Free Delivery Threshold** (`free_delivery_threshold` key)
+  * **Estimated Delivery Time Text**
+
+---
+
+## 📂 Supabase Database Overview (Key Tables)
+
+* `products` – product details
+* `product_variants` – variant data (color/size/stock)
+* `product_images` – images linked to products
+* `categories` – product categories
+* `orders` – order data
+* `order_items` – products in each order
+* `user_profiles` – auto-created via trigger
+* `user_addresses` – address data
+* `site_settings` – app-wide settings
+* `coupons` – coupon definitions
+* `banners` – banner images and links
+
+---
+
+## ✅ Admin Control Summary
+
+Admin can:
+
+* Manage products, images, variants
+* Control stock levels
+* Assign categories
+* Control featured/trending/hot sale toggles
+* Handle and update orders
+* View users and address data
+* Manage discount coupons
+* Upload and reorder banners
+* Adjust delivery fee logic & top header via `site_settings`
+
+---
+
+## 🔄 ISR + Revalidation
+
+* On adding or editing products, trigger a revalidation of ISR paths
+* Use an authenticated API route `/api/revalidate` with secret token check
+* Revalidate:
+
+  * `/product/[slug]`
+  * `/` (optional if homepage features change)
+
+---
+
+## 🚀 Performance Tips
+
+* Table virtualization for large product/order lists
+* Lazy load images
+* Fast image preview from CDN links
+* Debounce all search/filter inputs
+* Ensure all data fetches are paginated and cached where possible
+
+---
+
+## 🌟 UI & UX Guidelines
+
+* Mobile-first layout
+* Sticky sidebar on desktop
+* Smooth Framer Motion transitions
+* Color-coded status chips for orders
+* Confirmations before deletion
+* Error/success toasts for all actions
+
+---
