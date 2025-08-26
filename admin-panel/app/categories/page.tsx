@@ -10,13 +10,14 @@ import {
   EyeSlashIcon,
   MagnifyingGlassIcon,
   ArrowsUpDownIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline'
 import MainLayout from '@/components/layout/MainLayout'
 import { supabase } from '@/lib/supabase'
 import { Category } from '@/types'
 import { formatDate, debounce } from '@/utils/helpers'
 import toast from 'react-hot-toast'
-import CategoryModal from '@/components/categories/CategoryModal'
+import CategoryModalEnhanced from '@/components/categories/CategoryModalEnhanced'
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -173,6 +174,7 @@ export default function CategoriesPage() {
                     <ArrowsUpDownIcon className="w-4 h-4" />
                   </div>
                 </th>
+                <th>Image</th>
                 <th 
                   className="cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('name')}
@@ -201,7 +203,7 @@ export default function CategoriesPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j}>
                         <div className="pulse-bg h-6 w-full"></div>
                       </td>
@@ -215,6 +217,19 @@ export default function CategoriesPage() {
                       <span className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
                         {category.display_order}
                       </span>
+                    </td>
+                    <td>
+                      {category.image_url ? (
+                        <img
+                          src={category.image_url}
+                          alt={category.name}
+                          className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                          <PhotoIcon className="w-6 h-6 text-gray-400" />
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div>
@@ -287,7 +302,7 @@ export default function CategoriesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center py-12">
+                  <td colSpan={8} className="text-center py-12">
                     <div className="text-gray-500">
                       No categories found. Create your first category to get started.
                     </div>
@@ -301,7 +316,7 @@ export default function CategoriesPage() {
 
       {/* Category Modal */}
       {showModal && (
-        <CategoryModal
+        <CategoryModalEnhanced
           category={editingCategory}
           onSuccess={handleCategorySuccess}
           onClose={closeModal}

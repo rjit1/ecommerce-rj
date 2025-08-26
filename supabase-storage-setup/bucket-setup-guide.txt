@@ -25,7 +25,7 @@ This guide will help you set up all required storage buckets for the RJ4WEAR e-c
 - **Folder Structure**: `categories/{timestamp}-{random}.{ext}`
 - **Access**: Public read, Admin write
 
-### 4. Product Variants Bucket (Future Use)
+### 4. Product Variants Bucket
 - **Name**: `variants`
 - **Purpose**: Store variant-specific images (color/size variations)
 - **Folder Structure**: `variants/{timestamp}-{random}.{ext}`
