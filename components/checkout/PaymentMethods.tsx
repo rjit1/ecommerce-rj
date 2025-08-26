@@ -4,7 +4,7 @@ import { CreditCard, Banknote, Truck, Gift } from 'lucide-react'
 import { formatCurrency } from '@/utils/helpers'
 
 interface PaymentMethodsProps {
-  selectedMethod: 'online' | 'cod'
+  selectedMethod: 'online' | 'cod' | null
   onMethodSelect: (method: 'online' | 'cod') => void
   subtotal: number
   freeDeliveryThreshold: number
@@ -49,12 +49,10 @@ export default function PaymentMethods({
               <div className="flex items-center space-x-2 mb-2">
                 <CreditCard className="w-5 h-5 text-primary-600" />
                 <h3 className="font-medium text-gray-900">Online Payment</h3>
-                {!isEligibleForFreeDelivery && (
-                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center space-x-1">
-                    <Gift className="w-3 h-3" />
-                    <span>Free Delivery</span>
-                  </span>
-                )}
+                <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center space-x-1">
+                  <Gift className="w-3 h-3" />
+                  <span>FREE Delivery</span>
+                </span>
               </div>
               
               <p className="text-sm text-gray-600 mb-3">
@@ -73,19 +71,20 @@ export default function PaymentMethods({
                 </div>
               </div>
               
-              {!isEligibleForFreeDelivery && (
-                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Truck className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">
-                      Get FREE delivery with online payment!
-                    </span>
-                  </div>
-                  <p className="text-xs text-green-600 mt-1">
-                    Save {formatCurrency(deliveryFee)} on delivery charges by paying online
-                  </p>
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Truck className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-800">
+                    🎉 FREE delivery with online payment!
+                  </span>
                 </div>
-              )}
+                <p className="text-xs text-green-600 mt-1">
+                  {!isEligibleForFreeDelivery ? 
+                    `Save ${formatCurrency(deliveryFee)} on delivery charges by paying online` :
+                    'No delivery charges - completely FREE!'
+                  }
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -120,16 +119,22 @@ export default function PaymentMethods({
                 Pay with cash when your order is delivered to your doorstep
               </p>
               
-              {!isEligibleForFreeDelivery && (
-                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-800">
-                    <strong>Delivery Fee:</strong> {formatCurrency(deliveryFee)} will be added to your order total
-                  </p>
-                  <p className="text-xs text-orange-600 mt-1">
-                    Free delivery above {formatCurrency(freeDeliveryThreshold)}
-                  </p>
-                </div>
-              )}
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm text-orange-800">
+                  <strong>Delivery Fee:</strong> {!isEligibleForFreeDelivery ? 
+                    `${formatCurrency(deliveryFee)} will be added to your order total` :
+                    'FREE - Your order qualifies for free delivery!'
+                  }
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  {!isEligibleForFreeDelivery && 
+                    `💡 Choose online payment to get FREE delivery (save ${formatCurrency(deliveryFee)})`
+                  }
+                  {isEligibleForFreeDelivery && 
+                    'Free delivery above ' + formatCurrency(freeDeliveryThreshold)
+                  }
+                </p>
+              </div>
               
               <div className="mt-3 space-y-2">
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
@@ -148,7 +153,6 @@ export default function PaymentMethods({
                   <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  <span>Easy returns if not satisfied</span>
                 </div>
               </div>
             </div>

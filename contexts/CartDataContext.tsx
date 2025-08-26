@@ -66,6 +66,8 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [initialized, setInitialized] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [lastUserId, setLastUserId] = useState<string | null>(null)
+  const [isMergingCart, setIsMergingCart] = useState(false)
   const user = useUser()
   const supabase = createSupabaseClient()
 
@@ -192,9 +194,6 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
             setItems(prevItems => [...prevItems, newItem])
           }
         }
-
-        // Refresh cart to ensure consistency
-        await refreshCart()
       } else {
         // Guest user - save to localStorage
         const existingItemIndex = items.findIndex(
@@ -231,7 +230,7 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
       console.error('Error adding to cart:', error)
       toast.error('Failed to add to cart')
     }
-  }, [user, supabase, items, refreshCart, saveGuestCart])
+  }, [user, supabase, items, saveGuestCart])
 
   // Remove item from cart
   const removeItem = useCallback(async (itemId: string) => {
@@ -247,9 +246,6 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
         
         // Update local state immediately
         setItems(prevItems => prevItems.filter(item => item.id !== itemId))
-        
-        // Refresh cart to ensure consistency
-        await refreshCart()
       } else {
         // Guest user - remove from localStorage
         const newItems = items.filter(item => item.id !== itemId)
@@ -262,7 +258,7 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
       console.error('Error removing from cart:', error)
       toast.error('Failed to remove from cart')
     }
-  }, [user, supabase, items, refreshCart, saveGuestCart])
+  }, [user, supabase, items, saveGuestCart])
 
   // Update item quantity
   const updateQuantity = useCallback(async (itemId: string, quantity: number) => {
@@ -287,9 +283,6 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
             item.id === itemId ? { ...item, quantity } : item
           )
         )
-        
-        // Refresh cart to ensure consistency
-        await refreshCart()
       } else {
         // Guest user - update in localStorage
         const newItems = items.map(item =>
@@ -302,7 +295,7 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
       console.error('Error updating quantity:', error)
       toast.error('Failed to update quantity')
     }
-  }, [user, supabase, items, refreshCart, saveGuestCart, removeItem])
+  }, [user, supabase, items, saveGuestCart, removeItem])
 
   // Clear cart
   const clearCart = useCallback(async () => {
@@ -328,12 +321,15 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
 
   // Merge guest cart with user cart on login
   const mergeGuestCart = useCallback(async () => {
-    if (!user) return
+    if (!user || isMergingCart) return
 
     const guestCart = getFromLocalStorage<CartItem[]>('guest_cart', [])
     if (guestCart.length === 0) return
 
+    setIsMergingCart(true)
     try {
+      console.log('Merging guest cart with user cart:', guestCart.length, 'items')
+      
       // Add guest cart items to user's cart
       for (const guestItem of guestCart) {
         const { data: existingItem } = await supabase
@@ -364,22 +360,49 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
 
       // Clear guest cart
       setToLocalStorage('guest_cart', [])
-      await refreshCart()
+      console.log('Guest cart merged successfully')
+      
+      // Load user cart after merging
+      await loadUserCart()
     } catch (error) {
       console.error('Error merging guest cart:', error)
+    } finally {
+      setIsMergingCart(false)
     }
-  }, [user, supabase, refreshCart])
+  }, [user, supabase, isMergingCart, loadUserCart])
 
   // Initialize cart
   useEffect(() => {
     const initializeCart = async () => {
-      if (initialized || !isClient) return
+      if (initialized || !isClient || isMergingCart) return
       
-      console.log('Initializing cart for user:', user?.id || 'guest')
+      const currentUserId = user?.id || 'guest'
+      
+      // Check if user has changed
+      if (lastUserId !== null && lastUserId !== currentUserId) {
+        // User changed, need to reinitialize
+        setInitialized(false)
+        setLastUserId(currentUserId)
+        return
+      }
+      
+      if (lastUserId === null) {
+        setLastUserId(currentUserId)
+      }
+      
+      console.log('Initializing cart for user:', currentUserId)
       setLoading(true)
+      
       try {
         if (user) {
-          await loadUserCart()
+          // Check if there's a guest cart to merge first
+          const guestCart = getFromLocalStorage<CartItem[]>('guest_cart', [])
+          if (guestCart.length > 0 && !isMergingCart) {
+            console.log('Found guest cart to merge, merging first...')
+            await mergeGuestCart()
+          } else {
+            await loadUserCart()
+          }
         } else {
           loadGuestCart()
         }
@@ -392,21 +415,7 @@ export function CartDataProvider({ children }: { children: ReactNode }) {
     }
     
     initializeCart()
-  }, [user, loadUserCart, loadGuestCart, initialized, isClient])
-
-  // Re-initialize cart when user status changes (login/logout)
-  useEffect(() => {
-    if (initialized && user !== null) {
-      setInitialized(false)
-    }
-  }, [user, initialized])
-
-  // Merge guest cart on user login
-  useEffect(() => {
-    if (user) {
-      mergeGuestCart()
-    }
-  }, [user, mergeGuestCart])
+  }, [user, loadUserCart, loadGuestCart, initialized, isClient, lastUserId, isMergingCart, mergeGuestCart])
 
   return (
     <CartDataContext.Provider value={{

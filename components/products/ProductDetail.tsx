@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { Heart, Share2, Truck, Shield, RefreshCw, MessageCircle, Plus, Minus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Product, ProductVariant } from '@/types'
@@ -31,7 +32,8 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   const [quantity, setQuantity] = useState(1)
   const [isZoomed, setIsZoomed] = useState(false)
   
-  const { addItem } = useCart()
+  const { addItem, items, loading } = useCart()
+  const router = useRouter()
 
   const images = product.images || []
   const variants = product.variants || []
@@ -46,6 +48,11 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   const totalStock = getTotalStock(variants)
   const lowStock = isLowStock(variants)
   const inStock = isProductInStock(variants)
+
+  // Check if current variant is in cart
+  const isVariantInCart = !loading && selectedVariant && items.some(
+    item => item.variant_id === selectedVariant.id
+  )
 
   // Update selected variant when size/color changes
   useEffect(() => {
@@ -79,6 +86,12 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   }, [selectedVariant, images])
 
   const handleAddToCart = async () => {
+    if (isVariantInCart) {
+      // Navigate to cart if variant is already in cart
+      router.push('/cart')
+      return
+    }
+
     if (!selectedVariant) {
       toast.error('Please select size and color')
       return
@@ -97,9 +110,14 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   }
 
   const handleBuyNow = async () => {
-    await handleAddToCart()
-    // Redirect to checkout or cart page
-    window.location.href = '/cart'
+    if (isVariantInCart) {
+      // If already in cart, go directly to cart
+      router.push('/cart')
+    } else {
+      // Add to cart first, then redirect
+      await handleAddToCart()
+      router.push('/cart')
+    }
   }
 
   const handleShare = async () => {
@@ -347,18 +365,22 @@ export default function ProductDetail({ product }: ProductDetailProps) {
         <div className="space-y-3">
           <button
             onClick={handleBuyNow}
-            disabled={!inStock || !selectedVariant}
+            disabled={!inStock || (!selectedVariant && !isVariantInCart)}
             className="w-full bg-primary-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           >
-            {!inStock ? 'Out of Stock' : 'Buy Now'}
+            {!inStock ? 'Out of Stock' : isVariantInCart ? 'Go to Cart' : 'Buy Now'}
           </button>
           
           <button
             onClick={handleAddToCart}
-            disabled={!inStock || !selectedVariant}
-            className="w-full bg-white text-primary-600 py-3 px-6 rounded-lg font-semibold border-2 border-primary-600 hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            disabled={!inStock || (!selectedVariant && !isVariantInCart) || loading}
+            className={`w-full py-3 px-6 rounded-lg font-semibold border-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isVariantInCart 
+                ? 'bg-green-600 text-white border-green-600 hover:bg-green-700' 
+                : 'bg-white text-primary-600 border-primary-600 hover:bg-primary-50'
+            }`}
           >
-            Add to Cart
+            {loading ? 'Loading...' : isVariantInCart ? 'Go to Cart' : 'Add to Cart'}
           </button>
         </div>
 
@@ -413,17 +435,21 @@ export default function ProductDetail({ product }: ProductDetailProps) {
         <div className="flex space-x-3">
           <button
             onClick={handleAddToCart}
-            disabled={!inStock || !selectedVariant}
-            className="flex-1 bg-white text-primary-600 py-3 px-4 rounded-lg font-semibold border-2 border-primary-600 hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            disabled={!inStock || (!selectedVariant && !isVariantInCart) || loading}
+            className={`flex-1 py-3 px-4 rounded-lg font-semibold border-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isVariantInCart 
+                ? 'bg-green-600 text-white border-green-600 hover:bg-green-700' 
+                : 'bg-white text-primary-600 border-primary-600 hover:bg-primary-50'
+            }`}
           >
-            Add to Cart
+            {loading ? 'Loading...' : isVariantInCart ? 'Go to Cart' : 'Add to Cart'}
           </button>
           <button
             onClick={handleBuyNow}
-            disabled={!inStock || !selectedVariant}
+            disabled={!inStock || (!selectedVariant && !isVariantInCart)}
             className="flex-1 bg-primary-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           >
-            Buy Now
+            {!inStock ? 'Out of Stock' : isVariantInCart ? 'Go to Cart' : 'Buy Now'}
           </button>
         </div>
       </div>

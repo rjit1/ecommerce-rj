@@ -19,7 +19,7 @@ interface OrderSummaryProps {
   appliedCoupon: string
   setAppliedCoupon: (code: string) => void
   setCouponDiscount: (discount: number) => void
-  paymentMethod: 'online' | 'cod'
+  paymentMethod: 'online' | 'cod' | null
   freeDeliveryThreshold: number
 }
 
@@ -257,18 +257,37 @@ export default function OrderSummary({
           <span className="font-medium">
             {deliveryFee === 0 ? (
               <span className="text-green-600">FREE</span>
+            ) : paymentMethod === null ? (
+              <span className="text-orange-600">{formatCurrency(deliveryFee)}*</span>
             ) : (
               formatCurrency(deliveryFee)
             )}
           </span>
         </div>
 
-
+        {/* Show delivery fee explanations */}
+        {paymentMethod === null && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-amber-700">
+              <strong>*Delivery Fee:</strong> Choose online payment for FREE delivery, 
+              or pay {formatCurrency(deliveryFee)} for COD {subtotal >= freeDeliveryThreshold ? '(FREE above ' + formatCurrency(freeDeliveryThreshold) + ')' : ''}
+            </p>
+          </div>
+        )}
         
-        {subtotal < freeDeliveryThreshold && paymentMethod === 'online' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-blue-700">
-              <strong>💡 Tip:</strong> You're getting free delivery with online payment!
+        {paymentMethod === 'online' && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs text-green-700">
+              <strong>🎉 FREE Delivery!</strong> You chose online payment - delivery is on us!
+            </p>
+          </div>
+        )}
+
+        {paymentMethod === 'cod' && deliveryFee > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+            <p className="text-xs text-orange-700">
+              <strong>Delivery Fee:</strong> {formatCurrency(deliveryFee)} for Cash on Delivery.
+              Choose online payment for FREE delivery!
             </p>
           </div>
         )}
@@ -281,15 +300,17 @@ export default function OrderSummary({
         </div>
       </div>
 
-      {/* Payment Method Info */}
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Payment Method:</span>
-          <span className="font-medium text-gray-900">
-            {paymentMethod === 'online' ? 'Online Payment' : 'Cash on Delivery'}
-          </span>
+      {/* Payment Method Info - Only show when selected */}
+      {paymentMethod && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Payment Method:</span>
+            <span className="font-medium text-gray-900">
+              {paymentMethod === 'online' ? 'Online Payment' : 'Cash on Delivery'}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Security Badge */}
       <div className="pt-4 border-t border-gray-200">

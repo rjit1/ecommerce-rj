@@ -34,7 +34,7 @@ interface Address {
 export default function CheckoutContent({ settings }: CheckoutContentProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online')
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod' | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [couponCode, setCouponCode] = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
@@ -52,8 +52,10 @@ export default function CheckoutContent({ settings }: CheckoutContentProps) {
   // - Free delivery for online payments (regardless of order value)
   // - Free delivery for COD orders >= threshold
   // - Apply delivery fee only for COD orders below threshold
+  // - Show estimated delivery fee when no payment method selected (assuming COD)
   const deliveryFee = paymentMethod === 'online' ? 0 : 
-                     (subtotal >= freeDeliveryThreshold ? 0 : baseDeliveryFee)
+                     paymentMethod === 'cod' ? (subtotal >= freeDeliveryThreshold ? 0 : baseDeliveryFee) :
+                     (subtotal >= freeDeliveryThreshold ? 0 : baseDeliveryFee) // Show estimated fee when null
   const finalTotal = Math.max(0, Number(subtotal) - Number(couponDiscount) + Number(deliveryFee))
 
   // Redirect if cart is empty
